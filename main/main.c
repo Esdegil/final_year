@@ -8,6 +8,9 @@
  * SPDX-License-Identifier: CC0-1.0
  */
 
+
+#include "common_components.h"
+
 #include <stdio.h>
 #include <inttypes.h>
 #include "sdkconfig.h"
@@ -27,6 +30,8 @@ void main_restart_esp() {
 void app_main(void)
 {
     printf("This is Vlads Final Year Project!̣\n");
+    printf("Test val: %d\n", TEST_VALUE);
+
 
     esp_chip_info_t chip_info;
     uint32_t flash_size;
