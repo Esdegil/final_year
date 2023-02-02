@@ -10,7 +10,11 @@ esp_err_t device_get_pin_level(int pin, uint8_t *level){
 }
 
 esp_err_t device_set_pin_level(int pin, uint8_t level) {
-    gpio_set_level(pin, level);
+    printf("DEVICE: setting pin %d to level %d\n", pin, level);
+    if (gpio_set_level(pin, level) != ESP_OK){
+        printf("error occured\n");
+        return ESP_FAIL;
+    }
     return ESP_OK;
 }
 

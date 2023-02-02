@@ -69,9 +69,15 @@ void app_main(void)
     bool reboot_reqested = false;
     uint8_t level = 15;
     gpio_num_t num = GPIO_NUM_34;
+    gpio_num_t num2 = GPIO_NUM_32;
     gpio_mode_t mode = GPIO_MODE_INPUT;
+    gpio_mode_t mode2 = GPIO_MODE_OUTPUT;
 
     gpio_set_direction(num, mode);
+    gpio_set_direction(num2, mode2);
+    device_set_pin_level(num2, 1);
+
+    device_get_pin_level(num, &level);
 
     printf("Entering main loop\n");
     while(1) {
