@@ -10,6 +10,7 @@
 
 
 #include "common_components.h"
+#include "device.h"
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -18,10 +19,19 @@
 #include "freertos/task.h"
 #include "esp_chip_info.h"
 #include "esp_flash.h"
+#include "esp_err.h"
+#include "driver/gpio.h"
+
+#define TEST_PIN 34
 
 void main_restart_esp();
 
 void main_restart_esp() {
+
+    for (int i = 10; i >= 0; i--) {
+        printf("Restarting in %d seconds...\n", i);
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+    }
     printf("Restarting now.\n");
     fflush(stdout);
     esp_restart();
@@ -56,10 +66,27 @@ void app_main(void)
 
     printf("Minimum free heap size: %" PRIu32 " bytes\n", esp_get_minimum_free_heap_size());
 
-    for (int i = 10; i >= 0; i--) {
-        printf("Restarting in %d seconds...\n", i);
+    bool reboot_reqested = false;
+    uint8_t level = 15;
+    gpio_num_t num = GPIO_NUM_34;
+    gpio_mode_t mode = GPIO_MODE_INPUT;
+
+    gpio_set_direction(num, mode);
+
+    printf("Entering main loop\n");
+    while(1) {
+
+        
+        if (ESP_OK == device_get_pin_level(num, &level)){
+            printf("current level %d\n", level);
+        }
+        
+        if (reboot_reqested){
+            main_restart_esp();
+        }
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
+
     
 
 
