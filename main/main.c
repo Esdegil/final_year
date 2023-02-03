@@ -32,18 +32,18 @@ void main_restart_esp();
 void main_restart_esp() {
 
     for (int i = 10; i >= 0; i--) {
-        printf("Restarting in %d seconds...\n", i);
+        ESP_LOG(WARN, TAG, "Restarting in %d seconds...", i);
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
-    printf("Restarting now.\n");
+    ESP_LOG(WARN, TAG, "Restarting now.");
     fflush(stdout);
     esp_restart();
 }
 
 void app_main(void)
 {
-    printf("This is Vlads Final Year Project!̣\n");
-    printf("Test val: %d\n", TEST_VALUE);
+    ESP_LOG(INFO, TAG,"This is Vlads Final Year Project!̣");
+    
 
 
     esp_chip_info_t chip_info;
@@ -87,12 +87,12 @@ void app_main(void)
     ESP_LOG(INFO, TAG, "Another test multiple args %d %d", 99, 23);
 
 
-    printf("Entering main loop\n");
+    ESP_LOG(WARN, TAG, "Entering main loop");
     while(1) {
 
         
         if (ESP_OK == device_get_pin_level(num, &level)){
-            printf("current level %d\n", level);
+            ESP_LOG(DEBUG, TAG, "current level %d", level);
         }
         
         if (reboot_reqested){
