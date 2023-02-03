@@ -1,4 +1,5 @@
 #include "common_components.h"
+#include "logger_service.h"
 
 #include "esp_err.h"
 #include "driver/gpio.h"
