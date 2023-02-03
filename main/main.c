@@ -42,6 +42,17 @@ void main_restart_esp() {
     esp_restart();
 }
 
+esp_err_t init_services(){
+
+    ESP_LOG(WARN, TAG, "Initialising services...");
+
+    if (device_init() != ESP_OK){
+        ESP_LOG(ERROR, TAG, "Failed to init one of the services. Aborting.");
+        return ESP_FAIL;
+    }
+    return ESP_OK;
+}
+
 void app_main(void)
 {
     ESP_LOG(INFO, TAG,"This is Vlads Final Year Project!̣");
@@ -71,7 +82,17 @@ void app_main(void)
 
     printf("Minimum free heap size: %" PRIu32 " bytes\n", esp_get_minimum_free_heap_size());
 
+
+
+
     bool reboot_reqested = false;
+
+    ESP_LOG(INFO, TAG, "Min task size %d", configMINIMAL_STACK_SIZE);
+
+    if (init_services() != ESP_OK){
+        reboot_reqested = true;
+    }
+
     uint8_t level = 15;
     gpio_num_t num = GPIO_NUM_34;
     gpio_num_t num2 = GPIO_NUM_32;
