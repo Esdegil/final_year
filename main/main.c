@@ -26,6 +26,8 @@
 
 #define TEST_PIN 34
 #define TAG "MAIN"
+#define VERSION_NUMBER_X 0
+#define VERSION_NUMBER_Y 1
 
 void main_restart_esp();
 
@@ -43,7 +45,7 @@ void main_restart_esp() {
 void app_main(void)
 {
     ESP_LOG(INFO, TAG,"This is Vlads Final Year Project!̣");
-    
+    ESP_LOG(INFO, TAG, "Software version: v%d.%d", VERSION_NUMBER_X, VERSION_NUMBER_Y);
 
 
     esp_chip_info_t chip_info;
