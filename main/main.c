@@ -10,7 +10,9 @@
 
 
 #include "common_components.h"
+#include "logger_service.h"
 #include "device.h"
+
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -23,6 +25,7 @@
 #include "driver/gpio.h"
 
 #define TEST_PIN 34
+#define TAG "MAIN"
 
 void main_restart_esp();
 
@@ -78,6 +81,11 @@ void app_main(void)
     device_set_pin_level(num2, 1);
 
     device_get_pin_level(num, &level);
+
+    ESP_LOG(WARN, TAG, "This is a test message without args.");
+    ESP_LOG(ERROR, TAG, "This is a test message with argument: %d", TEST_VALUE);
+    ESP_LOG(INFO, TAG, "Another test multiple args %d %d", 99, 23);
+
 
     printf("Entering main loop\n");
     while(1) {
