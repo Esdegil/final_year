@@ -88,6 +88,11 @@ esp_err_t device_set_pin_level(int pin, uint8_t level) {
 }
 
 static bool acquire_lock(){
+    if (!local_data.initialised){
+    ESP_LOG(ERROR, TAG, "device service is not initialised.");
+    return false;
+    }
+
     if (xSemaphoreTake(local_data.lock, SECOND_TICK) == pdTRUE){
         return true;
     } 
@@ -95,6 +100,11 @@ static bool acquire_lock(){
 }
 
 static bool release_lock(){
+    if (!local_data.initialised){
+        ESP_LOG(ERROR, TAG, "device service is not initialised.");
+        return false;
+    }
+
     if (xSemaphoreGive(local_data.lock) == pdTRUE){
         return true;
     }
