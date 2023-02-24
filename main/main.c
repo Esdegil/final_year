@@ -143,9 +143,9 @@ led_strip_show(&led_strip);
     while(1) {
 
         
-        if (ESP_OK == device_get_pin_level(num, &level)){
+        /*if (ESP_OK == device_get_pin_level(num, &level)){
             ESP_LOG(DEBUG, TAG, "current level %d", level);
-        }
+        }*/
         
         if (reboot_reqested){
             main_restart_esp();
