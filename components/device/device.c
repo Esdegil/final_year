@@ -55,8 +55,7 @@ esp_err_t device_init(){
 
     if (local_data.task_handle == NULL){
         ESP_LOG(ERROR, TAG, "Failed to create task: %s. Aborting.", TASK_NAME);
-        vTaskDelete(local_data.task_handle);
-        return ESP_FAIL;
+        goto DELETE_TASK;
     }
 
     for(int i = 0; i < MATRIX_ROW_NUM; i++){
@@ -68,6 +67,12 @@ esp_err_t device_init(){
     local_data.initialised = true;
 
     return ESP_OK;
+
+DELETE_TASK:
+    vTaskDelete(local_data.task_handle);
+    // TODO: double check if memset 0 on local_data needed
+
+    return ESP_FAIL;
 
 }
 
