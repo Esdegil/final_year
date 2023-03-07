@@ -12,7 +12,7 @@
 #include "common_components.h"
 #include "logger_service.h"
 #include "device.h"
-
+#include "led_service.h"
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -49,6 +49,10 @@ esp_err_t init_services(){
     ESP_LOG(WARN, TAG, "Initialising services...");
 
     if (device_init() != ESP_OK){
+        ESP_LOG(ERROR, TAG, "Failed to init one of the services. Aborting.");
+        return ESP_FAIL;
+    }
+     if (led_service_init() != ESP_OK){
         ESP_LOG(ERROR, TAG, "Failed to init one of the services. Aborting.");
         return ESP_FAIL;
     }

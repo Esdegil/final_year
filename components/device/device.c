@@ -20,7 +20,7 @@ typedef struct local_data{
 
 } local_data_t;
 
-local_data_t local_data;
+static local_data_t local_data;
 
 
 static void device_task(void *args);
@@ -35,6 +35,9 @@ esp_err_t device_init(){
         ESP_LOG(ERROR, TAG, "%s already initialised. Aborting.", TASK_NAME);
         return ESP_FAIL;
     }
+
+
+    ESP_LOG(INFO, TAG, "Initialising LED service.");
 
     uint8_t params;
 
