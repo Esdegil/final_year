@@ -136,6 +136,7 @@ static void device_task(){
     gpio_set_direction(OUT_PIN_3, GPIO_MODE_INPUT);
 
 
+#ifdef TEST
     gpio_set_pull_mode(22, GPIO_PULLDOWN_ONLY);
     gpio_set_pull_mode(19, GPIO_PULLDOWN_ONLY);
 
@@ -162,9 +163,9 @@ static void device_task(){
         vTaskDelay(1000/portTICK_PERIOD_MS);
 
     }
+#endif
 
 
-#ifndef TEST
     while(1){
 
         for(int i = 0; i < MATRIX_ROW_NUM; i++){
@@ -188,7 +189,7 @@ static void device_task(){
         vTaskDelay(1000/portTICK_PERIOD_MS);*/
     vTaskDelay(5000/portTICK_PERIOD_MS);
     }
-#endif
+
 
 }
 
