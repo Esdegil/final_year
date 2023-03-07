@@ -24,6 +24,8 @@
 #include "esp_err.h"
 #include "driver/gpio.h"
 
+#include "../ESP32_LED_STRIP/components/led_strip/inc/led_strip/led_strip.h"
+
 #define TEST_PIN 34
 #define TAG "MAIN"
 #define VERSION_NUMBER_X 0
@@ -92,6 +94,33 @@ void app_main(void)
     if (init_services() != ESP_OK){
         reboot_reqested = true;
     }
+
+gpio_set_direction(GPIO_NUM_21, GPIO_MODE_OUTPUT);
+
+#define LED_STRIP_LENGTH 17U
+#define LED_STRIP_RMT_INTR_NUM 19U
+
+static struct led_color_t led_strip_buf_1[LED_STRIP_LENGTH];
+static struct led_color_t led_strip_buf_2[LED_STRIP_LENGTH];
+
+
+    struct led_strip_t led_strip = {
+    .rgb_led_type = RGB_LED_TYPE_WS2812,
+    .rmt_channel = RMT_CHANNEL_1,
+    .rmt_interrupt_num = LED_STRIP_RMT_INTR_NUM,
+    .gpio = GPIO_NUM_21,
+    .led_strip_buf_1 = led_strip_buf_1,
+    .led_strip_buf_2 = led_strip_buf_2,
+    .led_strip_length = LED_STRIP_LENGTH
+};
+led_strip.access_semaphore = xSemaphoreCreateBinary();
+
+bool led_init_ok = led_strip_init(&led_strip);
+
+led_strip_set_pixel_rgb(&led_strip, 3, 5, 1, 1);
+led_strip_set_pixel_rgb(&led_strip, 5, 1, 7, 1);
+
+led_strip_show(&led_strip);
 
     uint8_t level = 15;
     gpio_num_t num = GPIO_NUM_34;
