@@ -48,11 +48,12 @@ esp_err_t init_services(){
 
     ESP_LOG(WARN, TAG, "Initialising services...");
 
-    if (device_init() != ESP_OK){
+     if (led_service_init() != ESP_OK){
         ESP_LOG(ERROR, TAG, "Failed to init one of the services. Aborting.");
         return ESP_FAIL;
     }
-     if (led_service_init() != ESP_OK){
+
+    if (device_init() != ESP_OK){
         ESP_LOG(ERROR, TAG, "Failed to init one of the services. Aborting.");
         return ESP_FAIL;
     }
@@ -132,6 +133,9 @@ gpio_set_direction(GPIO_NUM_21, GPIO_MODE_OUTPUT);
             main_restart_esp();
         }
         vTaskDelay(1000 / portTICK_PERIOD_MS);
+        led_test();
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        led_test2();
     }
 
     

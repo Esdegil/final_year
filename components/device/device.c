@@ -63,8 +63,11 @@ esp_err_t device_init(){
             local_data.switch_matrix[i][j] = false;
         }
     }
+    ESP_LOG(ERROR, TAG, "Before assigning %d", local_data.initialised);
 
     local_data.initialised = true;
+
+    ESP_LOG(ERROR, TAG, "After assigning %d", local_data.initialised);
 
     return ESP_OK;
 
