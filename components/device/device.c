@@ -4,8 +4,6 @@
 #define TAG "DEVICE"
 #define TASK_NAME "device_task"
 
-#define MATRIX_ROW_NUM 3
-#define MATRIX_COL_NUM 3
 
 
 typedef struct local_data{
