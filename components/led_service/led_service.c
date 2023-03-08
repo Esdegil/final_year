@@ -286,7 +286,94 @@ static bool release_lock(){
     return false;
 }
 
-esp_err_t led_op_pawn(bool white, uint8_t pos_x, uint8_t pos_y) {
+static esp_err_t movement_forward_for_white(uint8_t empty_cells, uint8_t pos_x, uint8_t pos_y) { 
+
+    
+    for (int i = 1; i < empty_cells+1; i++){ // TODO: magic number
+
+        if (!led_strip_set_pixel_color(&local_data.led_strip, (pos_y*MATRIX_Y) + pos_x + (MATRIX_X*i), &colour_purple)) {
+            led_strip_clear(); // TODO: not sure if needed
+            return ESP_FAIL;
+        } 
+    }
+    
+    return ESP_OK;
+    
+}
+
+static esp_err_t movement_forward_for_black(uint8_t empty_cells, uint8_t pos_x, uint8_t pos_y) {
+
+    
+    for (int i = 1; i < empty_cells+1; i++){ // TODO: magic number
+
+        if (!led_strip_set_pixel_color(&local_data.led_strip, (pos_y*MATRIX_Y) + pos_x - (MATRIX_X*i), &colour_white)) {
+            led_strip_clear(); // TODO: not sure if needed
+            return ESP_FAIL;
+        } 
+    }
+    
+    return ESP_OK;
+    
+}
+
+esp_err_t led_op_pawn(bool white, bool special_moves,bool attack_right, bool attack_left, uint8_t empty_cells, uint8_t pos_x, uint8_t pos_y) { // TODO: special moves probably should not be bool
+
+    // TODO: think about this whole concept again while it's not too late
+
+    if (white){
+        
+        if (access_lock()){
+
+            if (!led_strip_clear(&local_data.led_strip)){
+                return ESP_FAIL;
+            }
+
+            if (special_moves){
+                //TODO: do something
+            }
+
+            if (movement_forward_for_white(empty_cells, pos_x, pos_y) != ESP_OK){
+                ESP_LOG(ERROR, "Failed to add forward movement to the buffer. Abortng");
+                return ESP_FAIL;
+            }
+            
+          
+            
+            if (release_lock()){
+                return ESP_OK;
+            } else {
+                return ESP_FAIL;
+            }
+        } else {
+            return ESP_FAIL;
+        }
+    } else { // if black figure
+        if (access_lock()){
+
+            if (!led_strip_clear(&local_data.led_strip)){
+                return ESP_FAIL;
+            }
+
+            if (special_moves){
+                //TODO: do something
+            }
+
+            if (movement_forward_for_black(empty_cells, pos_x, pos_y) != ESP_OK){
+                ESP_LOG(ERROR, "Failed to add forward movement to the buffer. Abortng");
+                return ESP_FAIL;
+            }
+            
+          
+            
+            if (release_lock()){
+                return ESP_OK;
+            } else {
+                return ESP_FAIL;
+            }
+        } else {
+            return ESP_FAIL;
+        }
+    }
 
     return ESP_FAIL;
 
