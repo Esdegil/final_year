@@ -22,10 +22,10 @@ typedef struct local_data{
 
     SemaphoreHandle_t lock;
 
-    //struct led_color_t led_strip_buf_1[LED_STRIP_LENGTH];
-    //struct led_color_t led_strip_buf_2[LED_STRIP_LENGTH];
+    struct led_color_t led_strip_buf_1[LED_STRIP_LENGTH];
+    struct led_color_t led_strip_buf_2[LED_STRIP_LENGTH];
 
-    //struct led_strip_t led_strip;
+    struct led_strip_t led_strip;
 
 
 } local_data_t;
@@ -37,20 +37,6 @@ static bool access_lock();
 static bool release_lock();
 
 
-static struct led_color_t led_strip_buf_1[LED_STRIP_LENGTH];
-static struct led_color_t led_strip_buf_2[LED_STRIP_LENGTH];
-
-
-static struct led_strip_t led_strip = {
-        .rgb_led_type = RGB_LED_TYPE_WS2812,
-        .rmt_channel = RMT_CHANNEL_1,
-        .rmt_interrupt_num = LED_STRIP_RMT_INTR_NUM,
-        .gpio = GPIO_NUM_21, // TODO: this works for now, but might need to be moved to another pin.
-        .led_strip_buf_1 = led_strip_buf_1,
-        .led_strip_buf_2 = led_strip_buf_2,
-        .led_strip_length = LED_STRIP_LENGTH
-    };
-  
 
 esp_err_t led_service_init(){
 
@@ -72,7 +58,7 @@ esp_err_t led_service_init(){
     }
 
 
-    /*struct led_strip_t led_strip = {
+    struct led_strip_t led_strip = {
         .rgb_led_type = RGB_LED_TYPE_WS2812,
         .rmt_channel = RMT_CHANNEL_1,
         .rmt_interrupt_num = LED_STRIP_RMT_INTR_NUM,
@@ -83,13 +69,6 @@ esp_err_t led_service_init(){
     };
     
     memcpy(&local_data.led_strip, &led_strip, sizeof(led_strip_data_t));
-
-    local_data.led_strip.access_semaphore = xSemaphoreCreateBinary();
-
-    if (!led_strip_init(&local_data.led_strip)){ // TODO: double check if buffers need to be cleared before exiting on fail.
-        ESP_LOG(ERROR, TAG, "Failed to initialise LED Strip task (library). Aborting");
-        goto DELETE_TASK;
-    }*/
 
     xTaskCreate(led_service_task, TASK_NAME, configMINIMAL_STACK_SIZE*2, &params, tskIDLE_PRIORITY, &local_data.task_handle);
 
@@ -113,12 +92,13 @@ DELETE_TASK:
 
 static void led_service_task(void *args){
 
+
     vTaskDelay(1000/portTICK_PERIOD_MS); // I don't know why exactly, but it seems this LED Strip library needs some time before initialising 
 
     
-    led_strip.access_semaphore = xSemaphoreCreateBinary();
+    local_data.led_strip.access_semaphore = xSemaphoreCreateBinary();
 
-    if (!led_strip_init(&led_strip)){ // TODO: double check if buffers need to be cleared before exiting on fail.
+    if (!led_strip_init(&local_data.led_strip)){ // TODO: double check if buffers need to be cleared before exiting on fail.
         ESP_LOG(ERROR, TAG, "Failed to initialise LED Strip task (library). Aborting");
         
     } else {
@@ -128,7 +108,7 @@ static void led_service_task(void *args){
 
     if (access_lock()){
 
-    //ESP_LOG(WARN, TAG, "Before setting leds GPIO %d strip type %d len %ld", local_data.led_strip.gpio, local_data.led_strip.rgb_led_type, local_data.led_strip.led_strip_length);
+    ESP_LOG(WARN, TAG, "LED Strip config: GPIO %d strip type %d len %ld", local_data.led_strip.gpio, local_data.led_strip.rgb_led_type, local_data.led_strip.led_strip_length);
 
     if (!release_lock()){
         ESP_LOG(ERROR, TAG, "Failed to release lock.");
@@ -147,33 +127,25 @@ static void led_service_task(void *args){
 
 esp_err_t led_test(){
 
-  
-    
-    //memcpy(&local_data.led_strip, &led_strip, sizeof(led_strip_data_t));
-
-    
-
-
-    led_strip_clear(&led_strip);
+    led_strip_clear(&local_data.led_strip);
     ESP_LOG(INFO, TAG, "Cleared LED strip buffers");
 
 
-    if (led_strip_set_pixel_rgb(&led_strip, 3, 7, 1, 1)){
+    if (led_strip_set_pixel_rgb(&local_data.led_strip, 3, 7, 1, 1)){
         ESP_LOG(WARN, TAG, "Success");
     } else {
         ESP_LOG(ERROR, TAG, "Fail");
     }
-    led_strip_set_pixel_rgb(&led_strip, 4, 7, 1, 1);
-    led_strip_set_pixel_rgb(&led_strip, 5, 1, 7, 1);
-    led_strip_set_pixel_rgb(&led_strip, 6, 1, 7, 1);
-    led_strip_set_pixel_rgb(&led_strip, 7, 7, 7, 1);
-    led_strip_set_pixel_rgb(&led_strip, 8, 7, 7, 1);
+
+    led_strip_set_pixel_rgb(&local_data.led_strip, 4, 7, 1, 1);
+    led_strip_set_pixel_rgb(&local_data.led_strip, 5, 1, 7, 1);
+    led_strip_set_pixel_rgb(&local_data.led_strip, 6, 1, 7, 1);
+    led_strip_set_pixel_rgb(&local_data.led_strip, 7, 7, 7, 1);
+    led_strip_set_pixel_rgb(&local_data.led_strip, 8, 7, 7, 1);
 
 
 
-    //vTaskDelay(5000/portTICK_PERIOD_MS);
-
-    if (!led_strip_show(&led_strip)) {
+    if (!led_strip_show(&local_data.led_strip)) {
         ESP_LOG(ERROR, TAG, "Failed to show");
     } else {
         ESP_LOG(WARN, TAG, "Showed successfully");
@@ -185,33 +157,51 @@ esp_err_t led_test(){
 
 esp_err_t led_test2(){
 
-  
-    
-    //memcpy(&local_data.led_strip, &led_strip, sizeof(led_strip_data_t));
-
-    
-
-
-    led_strip_clear(&led_strip);
+    led_strip_clear(&local_data.led_strip);
     ESP_LOG(INFO, TAG, "Cleared LED strip buffers");
 
 
-    if (led_strip_set_pixel_rgb(&led_strip, 3, 7, 1, 1)){
+    if (led_strip_set_pixel_rgb(&local_data.led_strip, 3, 7, 1, 1)){
         ESP_LOG(WARN, TAG, "Success");
     } else {
         ESP_LOG(ERROR, TAG, "Fail");
     }
-    led_strip_set_pixel_rgb(&led_strip, 4, 7, 1, 1);
-    led_strip_set_pixel_rgb(&led_strip, 5, 1, 1, 7);
-    led_strip_set_pixel_rgb(&led_strip, 6, 1, 1, 7);
-    led_strip_set_pixel_rgb(&led_strip, 7, 7, 7, 7);
-    led_strip_set_pixel_rgb(&led_strip, 8, 7, 7, 7);
+    led_strip_set_pixel_rgb(&local_data.led_strip, 4, 7, 1, 1);
+    led_strip_set_pixel_rgb(&local_data.led_strip, 5, 1, 1, 7);
+    led_strip_set_pixel_rgb(&local_data.led_strip, 6, 1, 1, 7);
+    led_strip_set_pixel_rgb(&local_data.led_strip, 7, 7, 7, 7);
+    led_strip_set_pixel_rgb(&local_data.led_strip, 8, 7, 7, 7);
 
 
 
-    //vTaskDelay(5000/portTICK_PERIOD_MS);
+    if (!led_strip_show(&local_data.led_strip)) {
+        ESP_LOG(ERROR, TAG, "Failed to show");
+    } else {
+        ESP_LOG(WARN, TAG, "Showed successfully");
+    }
 
-    if (!led_strip_show(&led_strip)) {
+
+    return ESP_OK;
+}
+
+esp_err_t led_test3(){
+
+    led_strip_clear(&local_data.led_strip);
+    ESP_LOG(INFO, TAG, "Cleared LED strip buffers");
+
+
+    if (led_strip_set_pixel_rgb(&local_data.led_strip, 3, 7, 3, 1)){
+        ESP_LOG(WARN, TAG, "Success");
+    } else {
+        ESP_LOG(ERROR, TAG, "Fail");
+    }
+    led_strip_set_pixel_rgb(&local_data.led_strip, 4, 7, 1, 5);
+    led_strip_set_pixel_rgb(&local_data.led_strip, 5, 1, 7, 3);
+    led_strip_set_pixel_rgb(&local_data.led_strip, 6, 2, 7, 4);
+    led_strip_set_pixel_rgb(&local_data.led_strip, 7, 7, 7, 7);
+    led_strip_set_pixel_rgb(&local_data.led_strip, 8, 7, 7, 1);
+
+    if (!led_strip_show(&local_data.led_strip)) {
         ESP_LOG(ERROR, TAG, "Failed to show");
     } else {
         ESP_LOG(WARN, TAG, "Showed successfully");

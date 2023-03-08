@@ -31,6 +31,8 @@
 #define VERSION_NUMBER_X 0
 #define VERSION_NUMBER_Y 1
 
+#define LED_TEST
+
 void main_restart_esp();
 
 void main_restart_esp() {
@@ -125,17 +127,19 @@ gpio_set_direction(GPIO_NUM_21, GPIO_MODE_OUTPUT);
     while(1) {
 
         
-        /*if (ESP_OK == device_get_pin_level(num, &level)){
-            ESP_LOG(DEBUG, TAG, "current level %d", level);
-        }*/
         
         if (reboot_reqested){
             main_restart_esp();
         }
         vTaskDelay(1000 / portTICK_PERIOD_MS);
+
+#ifdef LED_TEST
         led_test();
         vTaskDelay(1000 / portTICK_PERIOD_MS);
         led_test2();
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        led_test3();
+#endif
     }
 
     
