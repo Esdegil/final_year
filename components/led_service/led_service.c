@@ -8,6 +8,48 @@
 #define TAG "LED_SERVICE"
 #define TASK_NAME "led_service_task"
 
+struct led_color_t colour_red = {
+    .red = 10,
+    .green = 1,
+    .blue = 1
+};
+
+
+struct led_color_t colour_green = {
+    .red = 1,
+    .green = 10,
+    .blue = 1
+};
+
+
+struct led_color_t colour_blue = {
+    .red = 1,
+    .green = 1,
+    .blue = 10
+};
+
+
+struct led_color_t colour_purple = {
+    .red = 10,
+    .green = 1,
+    .blue = 10
+};
+
+
+struct led_color_t colour_yellow = {
+    .red = 10,
+    .green = 8,
+    .blue = 1
+};
+
+
+struct led_color_t colour_white = {
+    .red = 10,
+    .green = 10,
+    .blue = 10
+};
+
+
 
 #define LED_STRIP_LENGTH ((MATRIX_X * MATRIX_Y) + 1)
 #define LED_STRIP_RMT_INTR_NUM 19U // Not sure what this exactly is. It was in the initial config for this library
@@ -131,17 +173,22 @@ esp_err_t led_test(){
     ESP_LOG(INFO, TAG, "Cleared LED strip buffers");
 
 
-    if (led_strip_set_pixel_rgb(&local_data.led_strip, 3, 7, 1, 1)){
+    /*if (led_strip_set_pixel_rgb(&local_data.led_strip, 3, 7, 1, 1)){
         ESP_LOG(WARN, TAG, "Success");
     } else {
         ESP_LOG(ERROR, TAG, "Fail");
-    }
+    }*/
 
-    led_strip_set_pixel_rgb(&local_data.led_strip, 4, 7, 1, 1);
-    led_strip_set_pixel_rgb(&local_data.led_strip, 5, 1, 7, 1);
-    led_strip_set_pixel_rgb(&local_data.led_strip, 6, 1, 7, 1);
-    led_strip_set_pixel_rgb(&local_data.led_strip, 7, 7, 7, 1);
-    led_strip_set_pixel_rgb(&local_data.led_strip, 8, 7, 7, 1);
+    led_strip_set_pixel_color(&local_data.led_strip, 0, &colour_purple);
+    led_strip_set_pixel_color(&local_data.led_strip, 1, &colour_purple);
+    led_strip_set_pixel_color(&local_data.led_strip, 2, &colour_purple);
+    led_strip_set_pixel_color(&local_data.led_strip, 3, &colour_red);
+    led_strip_set_pixel_color(&local_data.led_strip, 4, &colour_red);
+    led_strip_set_pixel_color(&local_data.led_strip, 5, &colour_green);
+    led_strip_set_pixel_color(&local_data.led_strip, 6, &colour_green);
+    led_strip_set_pixel_color(&local_data.led_strip, 7, &colour_yellow);
+    led_strip_set_pixel_color(&local_data.led_strip, 8, &colour_yellow);
+    
 
 
 
