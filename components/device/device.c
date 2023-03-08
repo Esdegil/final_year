@@ -20,11 +20,11 @@ typedef struct local_data{
 
 } local_data_t;
 
-local_data_t local_data;
+static local_data_t local_data;
 
 
 static void device_task(void *args);
-static bool acquire_lock();
+static bool access_lock();
 static bool release_lock();
 
 
@@ -35,6 +35,9 @@ esp_err_t device_init(){
         ESP_LOG(ERROR, TAG, "%s already initialised. Aborting.", TASK_NAME);
         return ESP_FAIL;
     }
+
+
+    ESP_LOG(INFO, TAG, "Initialising LED service.");
 
     uint8_t params;
 
@@ -52,8 +55,7 @@ esp_err_t device_init(){
 
     if (local_data.task_handle == NULL){
         ESP_LOG(ERROR, TAG, "Failed to create task: %s. Aborting.", TASK_NAME);
-        vTaskDelete(local_data.task_handle);
-        return ESP_FAIL;
+        goto DELETE_TASK;
     }
 
     for(int i = 0; i < MATRIX_ROW_NUM; i++){
@@ -61,15 +63,24 @@ esp_err_t device_init(){
             local_data.switch_matrix[i][j] = false;
         }
     }
+    ESP_LOG(ERROR, TAG, "Before assigning %d", local_data.initialised);
 
     local_data.initialised = true;
 
+    ESP_LOG(ERROR, TAG, "After assigning %d", local_data.initialised);
+
     return ESP_OK;
+
+DELETE_TASK:
+    vTaskDelete(local_data.task_handle);
+    // TODO: double check if memset 0 on local_data needed
+
+    return ESP_FAIL;
 
 }
 
 static void print_array(){
-    if(acquire_lock()){
+    if(access_lock()){
         
         for (int i = 0; i < MATRIX_ROW_NUM; i++){
             printf("{ ");
@@ -211,7 +222,7 @@ esp_err_t device_set_pin_level(int pin, uint8_t level) {
     return ESP_OK;
 }
 
-static bool acquire_lock(){
+static bool access_lock(){
     if (!local_data.initialised){
     ESP_LOG(ERROR, TAG, "device service is not initialised.");
     return false;
