@@ -3,13 +3,13 @@
 
 #include "led_service.h"
 
-#include "../../ESP32_LED_STRIP/components/led_strip/inc/led_strip/led_strip.h"
+
 
 #define TAG "LED_SERVICE"
 #define TASK_NAME "led_service_task"
 
 
-#define LED_STRIP_LENGTH 17U
+#define LED_STRIP_LENGTH ((MATRIX_X * MATRIX_Y) + 1)
 #define LED_STRIP_RMT_INTR_NUM 19U // Not sure what this exactly is. It was in the initial config for this library
 
 typedef struct led_strip_t led_strip_data_t;
@@ -237,4 +237,10 @@ static bool release_lock(){
         return true;
     }
     return false;
+}
+
+esp_err_t led_op_pawn(bool white, uint8_t pos_x, uint8_t pos_y) {
+
+    return ESP_FAIL;
+
 }
