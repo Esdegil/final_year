@@ -11,8 +11,8 @@
 #define TEST_VALUE 15
 
 
-#define MATRIX_ROW_NUM 3
-#define MATRIX_COL_NUM 3
+#define MATRIX_X 3
+#define MATRIX_Y 3
 
 typedef void(*led_operation_t)(uint8_t, uint8_t);// last () is arguments. can be (int, int)
 
@@ -35,6 +35,6 @@ typedef struct figure_data {
 }figure_data_t;
 
 typedef struct chess_board {
-    figure_data_t board[MATRIX_COL_NUM+1][MATRIX_ROW_NUM+1];
+    figure_data_t board[MATRIX_Y+1][MATRIX_X+1];
     bool white_turn;
 } chess_board_t;
