@@ -4,8 +4,6 @@
 #define TAG "DEVICE"
 #define TASK_NAME "device_task"
 
-#define MATRIX_ROW_NUM 3
-#define MATRIX_COL_NUM 3
 
 
 typedef struct local_data{
@@ -16,7 +14,7 @@ typedef struct local_data{
 
     SemaphoreHandle_t lock;
 
-    bool switch_matrix[MATRIX_ROW_NUM+1][MATRIX_COL_NUM+1];
+    bool switch_matrix[MATRIX_X+1][MATRIX_Y+1];
 
 } local_data_t;
 
@@ -58,8 +56,8 @@ esp_err_t device_init(){
         goto DELETE_TASK;
     }
 
-    for(int i = 0; i < MATRIX_ROW_NUM; i++){
-        for(int j = 0; j < MATRIX_COL_NUM; j++){
+    for(int i = 0; i < MATRIX_X; i++){
+        for(int j = 0; j < MATRIX_Y; j++){
             local_data.switch_matrix[i][j] = false;
         }
     }
@@ -82,9 +80,9 @@ DELETE_TASK:
 static void print_array(){
     if(access_lock()){
         
-        for (int i = 0; i < MATRIX_ROW_NUM; i++){
+        for (int i = 0; i < MATRIX_X; i++){
             printf("{ ");
-            for (int j = 0; j < MATRIX_COL_NUM; j++){
+            for (int j = 0; j < MATRIX_Y; j++){
                 printf("%d ", local_data.switch_matrix[i][j] ? 1 : 0);
             }
             printf("}\n");
@@ -179,13 +177,13 @@ static void device_task(){
 
     while(1){
 
-        for(int i = 0; i < MATRIX_ROW_NUM; i++){
-            for (int j = 0; j < MATRIX_COL_NUM; j++){
+        for(int i = 0; i < MATRIX_X; i++){
+            for (int j = 0; j < MATRIX_Y; j++){
 
                 device_set_pin_level(pins[j], 0);
             }
             device_set_pin_level(pins[i], 1);
-            for (int j = 0; j < MATRIX_COL_NUM; j++){
+            for (int j = 0; j < MATRIX_Y; j++){
                 device_get_pin_level(out_pins[j], &level);
                 if ((bool)level != local_data.switch_matrix[i][j]){
                     ESP_LOG(WARN, TAG, "Change detected at pin %d at level %d", out_pins[i], level);

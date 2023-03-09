@@ -13,6 +13,7 @@
 #include "logger_service.h"
 #include "device.h"
 #include "led_service.h"
+#include "chess_engine.h"
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -56,6 +57,10 @@ esp_err_t init_services(){
     }
 
     if (device_init() != ESP_OK){
+        ESP_LOG(ERROR, TAG, "Failed to init one of the services. Aborting.");
+        return ESP_FAIL;
+    }
+    if (chess_engine_init() != ESP_OK){
         ESP_LOG(ERROR, TAG, "Failed to init one of the services. Aborting.");
         return ESP_FAIL;
     }

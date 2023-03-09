@@ -3,13 +3,55 @@
 
 #include "led_service.h"
 
-#include "../../ESP32_LED_STRIP/components/led_strip/inc/led_strip/led_strip.h"
+
 
 #define TAG "LED_SERVICE"
 #define TASK_NAME "led_service_task"
 
+struct led_color_t colour_red = {
+    .red = 10,
+    .green = 1,
+    .blue = 1
+};
 
-#define LED_STRIP_LENGTH 17U
+
+struct led_color_t colour_green = {
+    .red = 1,
+    .green = 10,
+    .blue = 1
+};
+
+
+struct led_color_t colour_blue = {
+    .red = 1,
+    .green = 1,
+    .blue = 10
+};
+
+
+struct led_color_t colour_purple = {
+    .red = 10,
+    .green = 1,
+    .blue = 10
+};
+
+
+struct led_color_t colour_yellow = {
+    .red = 10,
+    .green = 8,
+    .blue = 1
+};
+
+
+struct led_color_t colour_white = {
+    .red = 10,
+    .green = 10,
+    .blue = 10
+};
+
+
+
+#define LED_STRIP_LENGTH ((MATRIX_X * MATRIX_Y) + 1)
 #define LED_STRIP_RMT_INTR_NUM 19U // Not sure what this exactly is. It was in the initial config for this library
 
 typedef struct led_strip_t led_strip_data_t;
@@ -131,17 +173,22 @@ esp_err_t led_test(){
     ESP_LOG(INFO, TAG, "Cleared LED strip buffers");
 
 
-    if (led_strip_set_pixel_rgb(&local_data.led_strip, 3, 7, 1, 1)){
+    /*if (led_strip_set_pixel_rgb(&local_data.led_strip, 3, 7, 1, 1)){
         ESP_LOG(WARN, TAG, "Success");
     } else {
         ESP_LOG(ERROR, TAG, "Fail");
-    }
+    }*/
 
-    led_strip_set_pixel_rgb(&local_data.led_strip, 4, 7, 1, 1);
-    led_strip_set_pixel_rgb(&local_data.led_strip, 5, 1, 7, 1);
-    led_strip_set_pixel_rgb(&local_data.led_strip, 6, 1, 7, 1);
-    led_strip_set_pixel_rgb(&local_data.led_strip, 7, 7, 7, 1);
-    led_strip_set_pixel_rgb(&local_data.led_strip, 8, 7, 7, 1);
+    led_strip_set_pixel_color(&local_data.led_strip, 0, &colour_purple);
+    led_strip_set_pixel_color(&local_data.led_strip, 1, &colour_purple);
+    led_strip_set_pixel_color(&local_data.led_strip, 2, &colour_purple);
+    led_strip_set_pixel_color(&local_data.led_strip, 3, &colour_red);
+    led_strip_set_pixel_color(&local_data.led_strip, 4, &colour_red);
+    led_strip_set_pixel_color(&local_data.led_strip, 5, &colour_green);
+    led_strip_set_pixel_color(&local_data.led_strip, 6, &colour_green);
+    led_strip_set_pixel_color(&local_data.led_strip, 7, &colour_yellow);
+    led_strip_set_pixel_color(&local_data.led_strip, 8, &colour_yellow);
+    
 
 
 
@@ -237,4 +284,131 @@ static bool release_lock(){
         return true;
     }
     return false;
+}
+
+static esp_err_t movement_forward_for_white(uint8_t empty_cells, uint8_t pos_x, uint8_t pos_y) { 
+
+    
+    for (int i = 1; i < empty_cells+1; i++){ // TODO: magic number
+
+        if (!led_strip_set_pixel_color(&local_data.led_strip, (pos_y*MATRIX_Y) + pos_x + (MATRIX_X*i), &colour_purple)) {
+           // led_strip_clear(); // TODO: not sure if needed
+            return ESP_FAIL;
+        } 
+    }
+    
+    return ESP_OK;
+    
+}
+
+static esp_err_t movement_forward_for_black(uint8_t empty_cells, uint8_t pos_x, uint8_t pos_y) {
+
+    
+    for (int i = 1; i < empty_cells+1; i++){ // TODO: magic number
+
+        if (!led_strip_set_pixel_color(&local_data.led_strip, (pos_y*MATRIX_Y) + pos_x - (MATRIX_X*i), &colour_white)) {
+           // led_strip_clear(); // TODO: not sure if needed
+            return ESP_FAIL;
+        } 
+    }
+    
+    return ESP_OK;
+    
+}
+
+//esp_err_t led_op_pawn(bool white, bool special_moves,bool attack_right, bool attack_left, uint8_t empty_cells, uint8_t pos_x, uint8_t pos_y) { // TODO: special moves probably should not be bool
+esp_err_t led_op_pawn(uint8_t *arr, bool white, uint8_t counter){
+    // TODO: think about this whole concept again while it's not too late
+
+
+    if (white){
+
+        if (access_lock()){
+            if (!led_strip_clear(&local_data.led_strip)){
+                ESP_LOG(ERROR, TAG, "Failed to clear led strip. Aborting");
+                return ESP_FAIL;
+            }
+
+            for (uint8_t i = 0; i < counter; i++){
+
+                ESP_LOG(WARN, TAG, "arr + i: %d", *(arr+i));
+
+                if (!led_strip_set_pixel_color(&local_data.led_strip, *(arr + i), &colour_purple)) {
+                    // TODO: think if we need to return from here on fail
+                    ESP_LOG(ERROR, TAG, "Failed to set pixel colour to buffer for pixel %d", *(arr+i));
+                }
+
+            }
+
+            if (!release_lock()){
+                return ESP_FAIL;
+            }
+
+            return ESP_OK; // TODO: maybe move it
+
+        } else {
+            return ESP_FAIL;
+        }
+
+    } else {
+
+    }
+
+    /*if (white){
+        
+        if (access_lock()){
+
+            if (!led_strip_clear(&local_data.led_strip)){
+                return ESP_FAIL;
+            }
+
+            if (special_moves){
+                //TODO: do something
+            }
+
+            if (movement_forward_for_white(empty_cells, pos_x, pos_y) != ESP_OK){
+                ESP_LOG(ERROR,TAG, "Failed to add forward movement to the buffer. Abortng");
+                return ESP_FAIL;
+            }
+            
+          
+            
+            if (release_lock()){
+                return ESP_OK;
+            } else {
+                return ESP_FAIL;
+            }
+        } else {
+            return ESP_FAIL;
+        }
+    } else { // if black figure
+        if (access_lock()){
+
+            if (!led_strip_clear(&local_data.led_strip)){
+                return ESP_FAIL;
+            }
+
+            if (special_moves){
+                //TODO: do something
+            }
+
+            if (movement_forward_for_black(empty_cells, pos_x, pos_y) != ESP_OK){
+                ESP_LOG(ERROR, TAG, "Failed to add forward movement to the buffer. Abortng");
+                return ESP_FAIL;
+            }
+            
+          
+            
+            if (release_lock()){
+                return ESP_OK;
+            } else {
+                return ESP_FAIL;
+            }
+        } else {
+            return ESP_FAIL;
+        }
+    } */
+
+    return ESP_FAIL;
+
 }
