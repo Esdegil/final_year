@@ -6,6 +6,8 @@
  
 esp_err_t led_service_init();
 
+esp_err_t led_op_pawn(uint8_t *arr, bool white, uint8_t counter);
+
 esp_err_t led_test();
 esp_err_t led_test2();
 esp_err_t led_test3();

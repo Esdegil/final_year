@@ -76,27 +76,36 @@ esp_err_t chess_engine_init(){
         local_data.board.board[0][2].pos_x = 2;
         local_data.board.board[0][2].pos_y = 0;
 
-        // TODO: add led operations
+        local_data.board.board[0][0].led_op = &led_op_pawn;
+        local_data.board.board[0][1].led_op = &led_op_pawn;
+        local_data.board.board[0][2].led_op = &led_op_pawn;
+
+
+        
 
     // Black figures init
-        local_data.board.board[0][0].figure_type = FIGURE_PAWN;
-        local_data.board.board[0][1].figure_type = FIGURE_PAWN;
-        local_data.board.board[0][2].figure_type = FIGURE_PAWN;
+        local_data.board.board[2][0].figure_type = FIGURE_PAWN;
+        local_data.board.board[2][1].figure_type = FIGURE_PAWN;
+        local_data.board.board[2][2].figure_type = FIGURE_PAWN;
 
-        local_data.board.board[0][0].white = true;
-        local_data.board.board[0][1].white = true;
-        local_data.board.board[0][2].white = true;
+        local_data.board.board[2][0].white = true;
+        local_data.board.board[2][1].white = true;
+        local_data.board.board[2][2].white = true;
 
-        local_data.board.board[0][0].pos_x = 0;
-        local_data.board.board[0][0].pos_y = 0;
+        local_data.board.board[2][0].pos_x = 0;
+        local_data.board.board[2][0].pos_y = 0;
 
-        local_data.board.board[0][1].pos_x = 1;
-        local_data.board.board[0][1].pos_y = 0;
+        local_data.board.board[2][1].pos_x = 1;
+        local_data.board.board[2][1].pos_y = 0;
 
-        local_data.board.board[0][2].pos_x = 2;
-        local_data.board.board[0][2].pos_y = 0;
+        local_data.board.board[2][2].pos_x = 2;
+        local_data.board.board[2][2].pos_y = 0;
 
-        // TODO: add led operations
+        local_data.board.board[2][0].led_op = &led_op_pawn;
+        local_data.board.board[2][1].led_op = &led_op_pawn;
+        local_data.board.board[2][2].led_op = &led_op_pawn;
+
+        
     }
 
 

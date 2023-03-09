@@ -316,11 +316,45 @@ static esp_err_t movement_forward_for_black(uint8_t empty_cells, uint8_t pos_x, 
     
 }
 
-esp_err_t led_op_pawn(bool white, bool special_moves,bool attack_right, bool attack_left, uint8_t empty_cells, uint8_t pos_x, uint8_t pos_y) { // TODO: special moves probably should not be bool
-
+//esp_err_t led_op_pawn(bool white, bool special_moves,bool attack_right, bool attack_left, uint8_t empty_cells, uint8_t pos_x, uint8_t pos_y) { // TODO: special moves probably should not be bool
+esp_err_t led_op_pawn(uint8_t *arr, bool white, uint8_t counter){
     // TODO: think about this whole concept again while it's not too late
 
+
     if (white){
+
+        if (access_lock()){
+            if (!led_strip_clear(&local_data.led_strip)){
+                ESP_LOG(ERROR, TAG, "Failed to clear led strip. Aborting");
+                return ESP_FAIL;
+            }
+
+            for (uint8_t i = 0; i < counter; i++){
+
+                ESP_LOG(WARN, TAG, "arr + i: %d", *(arr+i));
+
+                if (!led_strip_set_pixel_color(&local_data.led_strip, *(arr + i), &colour_purple)) {
+                    // TODO: think if we need to return from here on fail
+                    ESP_LOG(ERROR, TAG, "Failed to set pixel colour to buffer for pixel %d", *(arr+i));
+                }
+
+            }
+
+            if (!release_lock()){
+                return ESP_FAIL;
+            }
+
+            return ESP_OK; // TODO: maybe move it
+
+        } else {
+            return ESP_FAIL;
+        }
+
+    } else {
+
+    }
+
+    /*if (white){
         
         if (access_lock()){
 
@@ -373,7 +407,7 @@ esp_err_t led_op_pawn(bool white, bool special_moves,bool attack_right, bool att
         } else {
             return ESP_FAIL;
         }
-    }
+    } */
 
     return ESP_FAIL;
 
