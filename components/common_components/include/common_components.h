@@ -14,6 +14,8 @@
 #define MATRIX_X 3
 #define MATRIX_Y 3
 
+#define FULL_BOARD (MATRIX_X == 8 && MATRIX_Y == 8) // for developing 
+
 typedef void(*led_operation_t)(bool, uint8_t, uint8_t);// last (bool, uint8_t, uint8_t) is arguments.
 
 typedef enum chess_figures {
