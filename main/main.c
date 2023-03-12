@@ -23,6 +23,7 @@
 #include "esp_chip_info.h"
 #include "esp_flash.h"
 #include "esp_err.h"
+#include "esp_event.h"
 #include "driver/gpio.h"
 
 
@@ -32,7 +33,17 @@
 #define VERSION_NUMBER_X 0
 #define VERSION_NUMBER_Y 1
 
-#define LED_TEST
+//#define LED_TEST
+
+typedef struct local_data {
+
+    esp_event_loop_handle_t handle;
+
+} local_data_t;
+
+static local_data_t local_data;
+
+ESP_EVENT_DEFINE_BASE(TEST_EVENTS);
 
 void main_restart_esp();
 
@@ -65,6 +76,22 @@ esp_err_t init_services(){
         return ESP_FAIL;
     }
     return ESP_OK;
+}
+
+static void main_event_handler(void* handler_args, esp_event_base_t base, int32_t id, void* event_data){
+
+   /* if (!args){
+        ESP_LOG(ERROR, "ARGS are empty. Aborting");
+        return;
+    }
+
+    int test = (int*)args;
+ */
+    ESP_LOG(ERROR, TAG, "A MESSAGE IN EVENT HANDLER");
+
+    ESP_LOG(WARN, TAG, "//////////////////////Event %ld occured.", id);
+
+
 }
 
 void app_main(void)
@@ -107,9 +134,25 @@ void app_main(void)
         reboot_reqested = true;
     }
 
-gpio_set_direction(GPIO_NUM_21, GPIO_MODE_OUTPUT);
+    gpio_set_direction(GPIO_NUM_21, GPIO_MODE_OUTPUT);
+
+    // TESTING EVENTS
+
+    esp_event_loop_args_t loop_without_args = {
+        .queue_size = 5,
+        .task_name = NULL
+    };
+
+    esp_err_t ret = esp_event_loop_create(&loop_without_args, &local_data.handle);
+    ESP_LOG(ERROR, TAG,"Error code: %d", ret);
 
 
+
+    //ret = esp_event_handler_register_with(local_data.handle, TEST_EVENTS, EVENT_MATRIX_SWITCH_CLOSED, main_event_handler, NULL ); // TODO: finish this    
+
+    ret = esp_event_handler_register(TEST_EVENTS, EVENT_MATRIX_SWITCH_CLOSED, main_event_handler, NULL);
+
+    ESP_LOG(ERROR, TAG, "Error code: %d", ret);
 
     uint8_t level = 15;
     gpio_num_t num = GPIO_NUM_34;
@@ -128,15 +171,34 @@ gpio_set_direction(GPIO_NUM_21, GPIO_MODE_OUTPUT);
     ESP_LOG(INFO, TAG, "Another test multiple args %d %d", 99, 23);
 
 
-    ESP_LOG(WARN, TAG, "Entering main loop");
+    ESP_LOG(WARN, TAG, "Entering main loop. Posting test event");
+
+    if (local_data.handle == NULL){
+        ESP_LOG(ERROR, TAG, "Handle is null");
+    }
+
+    if (esp_event_post_to(local_data.handle, TEST_EVENTS, EVENT_MATRIX_SWITCH_CLOSED, NULL, 0, portMAX_DELAY) != ESP_OK) {
+        ESP_LOG(ERROR, TAG, "Failed to post event");
+    }
+
     while(1) {
 
-        
+        ret = esp_event_post(TEST_EVENTS, EVENT_MATRIX_SWITCH_CLOSED, NULL, 0, portMAX_DELAY); 
+        if (ret == ESP_OK){
+            ESP_LOG(INFO, TAG, "Posted test event");
+        } else {
+            ESP_LOG(ERROR, TAG, "Failed to post event. ret: %d", ret);
+        }
+
+        /*if (esp_event_post_to(local_data.handle, TEST_EVENTS, EVENT_MATRIX_SWITCH_CLOSED, NULL, 0, portMAX_DELAY) != ESP_OK) {
+            ESP_LOG(ERROR, TAG, "Failed to post event");
+        }*/
         
         if (reboot_reqested){
             main_restart_esp();
         }
         vTaskDelay(1000 / portTICK_PERIOD_MS);
+
 
 #ifdef LED_TEST
         led_test();
