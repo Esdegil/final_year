@@ -1,6 +1,8 @@
 # final year project Vlad
 
-# version number v0.1
+# version number v0.2
+
+# Minimal requirements almost complete. Input matrix is connected with chess engine and led service.
 
 ## The plan is to merge dev to master once in a week with following notation vX.Y
 ### Y will be changed weekly and X should be changed with major updates such as finishing minimal requirements, etc.
