@@ -1,5 +1,6 @@
 #include "common_components.h"
 #include "logger_service.h"
+#include "chess_engine.h"
 
 #include "esp_err.h"
 #include "driver/gpio.h"

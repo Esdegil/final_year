@@ -1,0 +1,3 @@
+[submodule "ESP32_LED_STRIP"]
+	path = ESP32_LED_STRIP
+	url = https://github.com/Lucas-Bruder/ESP32_LED_STRIP.git
