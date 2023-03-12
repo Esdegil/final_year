@@ -1,1 +1,1 @@
-idf_component_register(INCLUDE_DIRS "include" REQUIRES freertos)
+idf_component_register(INCLUDE_DIRS "include" REQUIRES freertos esp_event)

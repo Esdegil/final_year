@@ -174,6 +174,7 @@ static void device_task(){
     }
 #endif
 
+    figure_position_t changed_state_figure;
 
     while(1){
 
@@ -188,6 +189,11 @@ static void device_task(){
                 if ((bool)level != local_data.switch_matrix[i][j]){
                     ESP_LOG(WARN, TAG, "Change detected at pin %d at level %d", out_pins[i], level);
                     local_data.switch_matrix[i][j] = level ? true : false;
+                    changed_state_figure.pos_x = i;
+                    changed_state_figure.pos_y = j;
+                    if (update_board_on_lift(changed_state_figure) != ESP_OK){
+                        ESP_LOG(ERROR, TAG, "Failed to update chess engine from device service");
+                    }
                 }
                 ESP_LOG(WARN, TAG, "Pin %d  pos %d level %d", out_pins[i], j, level);
                 print_array();
