@@ -41,7 +41,7 @@ typedef enum chess_figures {
     FIGURE_KING = 5,
     FIGURE_END_LIST
 } chess_figures_t;
-
+// TODO: pawns require a bool of first move
 typedef struct figure_data {
     chess_figures_t figure_type;
     bool white;

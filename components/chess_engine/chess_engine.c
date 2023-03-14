@@ -64,9 +64,9 @@ esp_err_t chess_engine_init(){
     } else { // assuming 3x3 prototype
 
     // White figures init
-        local_data.board.board[0][0].figure_type = FIGURE_PAWN;
-        local_data.board.board[0][1].figure_type = FIGURE_PAWN;
-        local_data.board.board[0][2].figure_type = FIGURE_PAWN;
+        local_data.board.board[0][0].figure_type = FIGURE_END_LIST;
+        local_data.board.board[0][1].figure_type = FIGURE_END_LIST;
+        local_data.board.board[0][2].figure_type = FIGURE_END_LIST;
 
         local_data.board.board[0][0].white = true;
         local_data.board.board[0][1].white = true;
@@ -89,8 +89,8 @@ esp_err_t chess_engine_init(){
         
 
     // Black figures init
-        local_data.board.board[2][0].figure_type = FIGURE_PAWN;
-        local_data.board.board[2][1].figure_type = FIGURE_PAWN;
+        local_data.board.board[2][0].figure_type = FIGURE_END_LIST;
+        local_data.board.board[2][1].figure_type = FIGURE_END_LIST;
         local_data.board.board[2][2].figure_type = FIGURE_END_LIST;
 
         local_data.board.board[2][0].white = false;
@@ -113,9 +113,13 @@ esp_err_t chess_engine_init(){
     // Rest of the board
 
         local_data.board.board[1][0].figure_type = FIGURE_END_LIST;
-        local_data.board.board[1][1].figure_type = FIGURE_END_LIST;
+        local_data.board.board[1][1].figure_type = FIGURE_ROOK;
         local_data.board.board[1][2].figure_type = FIGURE_END_LIST;
 
+
+        local_data.board.board[1][1].white = true;
+
+        local_data.board.board[1][1].led_op = &led_op_pawn;
 
         local_data.board.board[1][0].pos_x = 0;
         local_data.board.board[1][0].pos_y = 1;
@@ -175,7 +179,7 @@ static esp_err_t movement_forward_calculation(uint8_t empty_cells, figure_positi
 }
 
 static esp_err_t pawn_led_calculation(figure_position_t pos) {
-
+    
     chess_board_t board;
 
     if(access_lock()){
@@ -278,6 +282,199 @@ static esp_err_t pawn_led_calculation(figure_position_t pos) {
     return ESP_OK;
 }
 
+static uint8_t required_cells_calculation_forward(chess_board_t board, figure_position_t pos){
+    uint8_t required_cells = 0;
+    bool loop_broken = false;
+    
+    for (int i = 1; !(board.board[pos.pos_y+i][pos.pos_x].figure_type != FIGURE_END_LIST); i++){
+        required_cells++;
+        if(pos.pos_y+i >= MATRIX_Y){
+            required_cells--;
+            loop_broken = true;
+            ESP_LOG(ERROR, TAG, "Forward Loop broken");
+            break;
+        }
+        ESP_LOG(WARN, TAG, "Checks passed on %d:%d", pos.pos_y+i, pos.pos_x);   
+    }
+
+    if (!loop_broken && required_cells != 0){
+        if (board.board[pos.pos_y+required_cells][pos.pos_x].figure_type != FIGURE_END_LIST && board.board[pos.pos_y+required_cells][pos.pos_x].white == board.board[pos.pos_y][pos.pos_x].white){
+            ESP_LOG(WARN, TAG, "Forward same colour figure");
+            required_cells--;
+        }
+    }
+    return required_cells;
+}
+
+static uint8_t required_cells_calculation_backward(chess_board_t board, figure_position_t pos){
+    uint8_t required_cells = 0;
+    bool loop_broken = false;
+    
+    for (int i = 1; !(board.board[pos.pos_y-i][pos.pos_x].figure_type != FIGURE_END_LIST); i++){
+        required_cells++;
+        if(pos.pos_y-i >= MATRIX_Y){ // TODO: double check this as well
+            required_cells--;
+            loop_broken = true;
+            ESP_LOG(ERROR, TAG, "Backward Loop broken");
+            break;
+        }
+        ESP_LOG(WARN, TAG, "Checks passed on %d:%d", pos.pos_y-i, pos.pos_x);   
+    }
+
+    if (!loop_broken && required_cells != 0){
+        if (board.board[pos.pos_y-required_cells][pos.pos_x].figure_type != FIGURE_END_LIST && board.board[pos.pos_y-required_cells][pos.pos_x].white == board.board[pos.pos_y][pos.pos_x].white){
+            ESP_LOG(WARN, TAG, "Backward same colour figure");
+            required_cells--;
+        }
+    }
+    return required_cells;
+}
+
+static uint8_t required_cells_calculation_right(chess_board_t board, figure_position_t pos){
+    uint8_t required_cells = 0;
+    bool loop_broken = false;
+    
+    for (int i = 1; !(board.board[pos.pos_y][pos.pos_x+i].figure_type != FIGURE_END_LIST); i++){
+        required_cells++;
+        if(pos.pos_x+i >= MATRIX_X){ // TODO: double check this as well
+            required_cells--;
+            loop_broken = true;
+            ESP_LOG(ERROR, TAG, "Right Loop broken");
+            break;
+        }
+        ESP_LOG(WARN, TAG, "Checks passed on %d:%d", pos.pos_y, pos.pos_x+i);   
+    }
+
+    if (!loop_broken && required_cells != 0){
+        if (board.board[pos.pos_y][pos.pos_x+required_cells].figure_type != FIGURE_END_LIST && board.board[pos.pos_y][pos.pos_x+required_cells].white == board.board[pos.pos_y][pos.pos_x].white){
+            ESP_LOG(WARN, TAG, "Right same colour figure");
+            required_cells--;
+        }
+    }
+    return required_cells;
+}
+
+static uint8_t required_cells_calculation_left(chess_board_t board, figure_position_t pos){
+    uint8_t required_cells = 0;
+    bool loop_broken = false;
+    
+    for (int i = 1; !(board.board[pos.pos_y][pos.pos_x-i].figure_type != FIGURE_END_LIST); i++){
+        required_cells++;
+        if(pos.pos_x-i >= MATRIX_X){ // TODO: double check this as well
+            required_cells--;
+            loop_broken = true;
+            ESP_LOG(ERROR, TAG, "Left Loop broken");
+            break;
+        }
+        ESP_LOG(WARN, TAG, "Checks passed on %d:%d", pos.pos_y, pos.pos_x+i);   
+    }
+
+    if (!loop_broken && required_cells != 0){
+        if (board.board[pos.pos_y][pos.pos_x-required_cells].figure_type != FIGURE_END_LIST && board.board[pos.pos_y][pos.pos_x+required_cells].white == board.board[pos.pos_y][pos.pos_x].white){
+            ESP_LOG(WARN, TAG, "Left same colour figure");
+            required_cells--;
+        }
+    }
+    return required_cells;
+}
+
+static esp_err_t populate_led_array(uint8_t *array, uint8_t fw, uint8_t bc, uint8_t r, uint8_t l, figure_position_t pos){
+
+    if (!array){
+        ESP_LOG(ERROR, TAG, "Null array ptr. Aborting");
+        return ESP_FAIL;
+    }
+
+    uint8_t counter = 0;
+
+    
+        for (int i = 1; i <= fw; i++){
+            array[counter] = (((pos.pos_y+i)*MATRIX_Y) + pos.pos_x);
+            ESP_LOG(INFO, TAG, "y %d x %d calc %d", pos.pos_y, pos.pos_x, (((pos.pos_y+i)*MATRIX_Y) + pos.pos_x));
+            counter++;
+        }
+    
+    
+        for (int i = 1; i <= bc; i++){
+            array[counter] = (((pos.pos_y-i)*MATRIX_Y) + pos.pos_x);
+            counter++;
+        }
+    
+
+    
+        for (int i = 1; i <= r; i++){
+            array[counter] = ((pos.pos_y*MATRIX_Y) + (pos.pos_x+i));
+            counter++;
+        }
+    
+
+    
+        for (int i = 1; i <= l; i++){
+            array[counter] = ((pos.pos_y*MATRIX_Y) + (pos.pos_x-i));
+            counter++;
+        }
+    
+    ESP_LOG(INFO, TAG, "%d position filled", counter);
+
+    for (uint8_t i = 0; i < counter; i++){
+        ESP_LOG(INFO, TAG, "populated with: %d", array[i]);
+    }
+
+    return ESP_OK;
+}
+
+
+static esp_err_t rook_led_calculation(figure_position_t pos){
+    
+    chess_board_t board;
+
+    if(access_lock()){
+        board = local_data.board;
+        release_lock();
+    } else {
+        return ESP_FAIL;
+    }
+
+    ESP_LOG(INFO, TAG, "Calculating Rook");
+
+    uint8_t forward_cells = 0;
+    uint8_t backward_cells = 0;
+    uint8_t right_cells = 0;
+    uint8_t left_cells = 0;
+
+    forward_cells = required_cells_calculation_forward(board, pos);
+    backward_cells = required_cells_calculation_backward(board, pos);
+    right_cells = required_cells_calculation_right(board, pos);
+    left_cells = required_cells_calculation_left(board, pos);
+
+    uint8_t total_cells = forward_cells+backward_cells+right_cells+left_cells;
+
+    ESP_LOG(INFO, TAG, "Calculated: fw %d bc %d r %d l %d. Sum: %d", forward_cells, backward_cells, right_cells, left_cells, total_cells);
+
+    ESP_LOG(WARN, TAG, "MALLOC");
+    
+    uint8_t *arr_ptr = {0};
+
+    arr_ptr = calloc(total_cells, sizeof(uint8_t));
+
+    if (!arr_ptr){
+        ESP_LOG(ERROR, TAG, "Failed to malloc. Aborting");
+        arr_ptr = NULL;
+        return ESP_FAIL;
+    }
+
+    populate_led_array(arr_ptr, forward_cells, backward_cells, right_cells, left_cells, pos);
+
+    local_data.board.board[pos.pos_y][pos.pos_x].led_op(arr_ptr, total_cells);
+
+    
+    if (arr_ptr){
+        ESP_LOG(WARN, TAG, "FREE");
+        free(arr_ptr);
+    }
+    return ESP_OK;
+}
+
 static esp_err_t required_leds_calculation(figure_position_t updated_pos){
     
     chess_figures_t current_figure;
@@ -291,6 +488,11 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos){
     switch (current_figure){
         case FIGURE_PAWN:
             if (pawn_led_calculation(updated_pos) != ESP_OK){
+
+            }
+            break;
+        case FIGURE_ROOK:
+            if (rook_led_calculation(updated_pos) != ESP_OK) {
 
             }
             break;
