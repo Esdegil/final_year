@@ -64,8 +64,8 @@ esp_err_t chess_engine_init(){
     } else { // assuming 3x3 prototype
 
     // White figures init
-        local_data.board.board[0][0].figure_type = FIGURE_END_LIST;
-        local_data.board.board[0][1].figure_type = FIGURE_END_LIST;
+        local_data.board.board[0][0].figure_type = FIGURE_KNIGHT;
+        local_data.board.board[0][1].figure_type = FIGURE_KNIGHT;
         local_data.board.board[0][2].figure_type = FIGURE_END_LIST;
 
         local_data.board.board[0][0].white = true;
@@ -113,13 +113,13 @@ esp_err_t chess_engine_init(){
     // Rest of the board
 
         local_data.board.board[1][0].figure_type = FIGURE_END_LIST;
-        local_data.board.board[1][1].figure_type = FIGURE_ROOK;
+        local_data.board.board[1][1].figure_type = FIGURE_END_LIST;
         local_data.board.board[1][2].figure_type = FIGURE_END_LIST;
 
 
-        local_data.board.board[1][1].white = true;
+        //local_data.board.board[1][1].white = true;
 
-        local_data.board.board[1][1].led_op = &led_op_pawn;
+        //local_data.board.board[1][1].led_op = &led_op_pawn;
 
         local_data.board.board[1][0].pos_x = 0;
         local_data.board.board[1][0].pos_y = 1;
@@ -475,6 +475,164 @@ static esp_err_t rook_led_calculation(figure_position_t pos){
     return ESP_OK;
 }
 
+static esp_err_t knight_led_calculation(figure_position_t pos) {
+    chess_board_t board;
+
+    if(access_lock()){
+        board = local_data.board;
+        release_lock();
+    } else {
+        return ESP_FAIL;
+    }
+
+    ESP_LOG(INFO, TAG, "Calculating Knight");
+
+    uint8_t array[MAX_KNIGHT_MOVES];
+    uint8_t empty_cells = 0;
+
+    uint8_t one = 1;
+    uint8_t two = 2;
+
+    
+    if ((uint8_t)(pos.pos_y + 2) < MATRIX_Y){
+        
+        if ((uint8_t)(pos.pos_x + 1) < MATRIX_X){
+            
+            if (board.board[pos.pos_y+2][pos.pos_x+1].figure_type != FIGURE_END_LIST){
+                if (board.board[pos.pos_y+2][pos.pos_x+1].white != board.board[pos.pos_y][pos.pos_x].white){
+                    ESP_LOG(WARN, TAG, "Enemy figure y+2 x +1");
+                    ESP_LOG(WARN, TAG, "Y + 2 x + 1");
+                    array[empty_cells] = (((pos.pos_y+2)*MATRIX_Y) + pos.pos_x+1);
+                    empty_cells++;
+                }
+            } else {
+                ESP_LOG(WARN, TAG, "Y + 2 x + 1");
+                array[empty_cells] = (((pos.pos_y+2)*MATRIX_Y) + pos.pos_x+1);
+                empty_cells++;
+            }
+        }   
+        if ((uint8_t)(pos.pos_x - 1) < MATRIX_X) {
+            if (board.board[pos.pos_y+2][pos.pos_x-1].figure_type != FIGURE_END_LIST){
+                if (board.board[pos.pos_y+2][pos.pos_x-1].white != board.board[pos.pos_y][pos.pos_x].white){
+                    ESP_LOG(WARN, TAG, "Enemy figure y+2 x-1");
+                    ESP_LOG(WARN, TAG, "Y + 2 x - 1");
+                    array[empty_cells] = (((pos.pos_y+2)*MATRIX_Y) + pos.pos_x-1);
+                    empty_cells++;
+                }
+            } else {
+                ESP_LOG(WARN, TAG, "Y + 2 x - 1");
+                array[empty_cells] = (((pos.pos_y+2)*MATRIX_Y) + pos.pos_x-1);
+                empty_cells++;
+            }
+        }
+    }
+
+    
+    if ((uint8_t)(pos.pos_y - 2) < MATRIX_Y){
+        
+        if ((uint8_t)(pos.pos_x + 1) < MATRIX_X){
+            if (board.board[pos.pos_y-2][pos.pos_x+1].figure_type != FIGURE_END_LIST){
+                if (board.board[pos.pos_y-2][pos.pos_x+1].white != board.board[pos.pos_y][pos.pos_x].white){
+                    ESP_LOG(WARN, TAG, "Enemy figure y-2 x +1");
+                    array[empty_cells] = (((pos.pos_y-2)*MATRIX_Y) + pos.pos_x+1);
+                    empty_cells++;
+                }
+            } else {
+                ESP_LOG(WARN, TAG, "Y - 2 x + 1");
+                array[empty_cells] = (((pos.pos_y-2)*MATRIX_Y) + pos.pos_x+1);
+                empty_cells++;
+            }
+        }
+        if ((uint8_t)(pos.pos_x - 1) < MATRIX_X) {
+            if (board.board[pos.pos_y-2][pos.pos_x-1].figure_type != FIGURE_END_LIST){
+                if (board.board[pos.pos_y-2][pos.pos_x-1].white != board.board[pos.pos_y][pos.pos_x].white){
+                    ESP_LOG(WARN, TAG, "Enemy figure y-2 x-1");
+                    array[empty_cells] = (((pos.pos_y-2)*MATRIX_Y) + pos.pos_x-1);
+                    empty_cells++;
+                }
+            } else {
+                ESP_LOG(WARN, TAG, "Y - 2 x - 1");
+                array[empty_cells] = (((pos.pos_y-2)*MATRIX_Y) + pos.pos_x-1);
+                empty_cells++;
+            }
+        }
+    }
+
+    
+    if ((uint8_t)(pos.pos_x + 2) < MATRIX_X){
+        if ((uint8_t)(pos.pos_y + 1) < MATRIX_Y){
+            if (board.board[pos.pos_y+1][pos.pos_x+2].figure_type != FIGURE_END_LIST){
+                if (board.board[pos.pos_y+1][pos.pos_x+2].white != board.board[pos.pos_y][pos.pos_x].white){
+                    ESP_LOG(WARN, TAG, "Enemy figure y+1 x+2");
+                    array[empty_cells] = (((pos.pos_y+1)*MATRIX_Y) + pos.pos_x+2);
+                    empty_cells++;
+                }
+            } else {
+                ESP_LOG(WARN, TAG, "Y + 1 x + 2");
+                array[empty_cells] = (((pos.pos_y+1)*MATRIX_Y) + pos.pos_x+2);
+                empty_cells++;
+            }
+        }
+        if ((uint8_t)(pos.pos_y - 1) < MATRIX_Y){
+            if (board.board[pos.pos_y-1][pos.pos_x+2].figure_type != FIGURE_END_LIST){
+                if (board.board[pos.pos_y-1][pos.pos_x+2].white != board.board[pos.pos_y][pos.pos_x].white){
+                    ESP_LOG(WARN, TAG, "Enemy figure y-1 x+2");
+                    array[empty_cells] = (((pos.pos_y-1)*MATRIX_Y) + pos.pos_x+2);
+                    empty_cells++;
+                }
+            } else {
+                ESP_LOG(WARN, TAG, "Y - 1 x + 2");
+                array[empty_cells] = (((pos.pos_y-1)*MATRIX_Y) + pos.pos_x+2);
+                empty_cells++;
+            }
+        }
+    }
+
+    
+    if ((uint8_t)(pos.pos_x - 2) < MATRIX_X){
+        if ((uint8_t)(pos.pos_y + 1) < MATRIX_Y){
+            if (board.board[pos.pos_y+1][pos.pos_x-2].figure_type != FIGURE_END_LIST){
+                if (board.board[pos.pos_y+1][pos.pos_x-2].white != board.board[pos.pos_y][pos.pos_x].white){
+                    ESP_LOG(WARN, TAG, "Enemy figure y+1 x-2");
+                    array[empty_cells] = (((pos.pos_y+1)*MATRIX_Y) + pos.pos_x-2);
+                    empty_cells++;
+                }
+            } else {
+                ESP_LOG(WARN, TAG, "Y + 1 x - 2");
+                array[empty_cells] = (((pos.pos_y+1)*MATRIX_Y) + pos.pos_x-2);
+                empty_cells++;
+            }
+        }
+        if ((uint8_t)(pos.pos_y - 1) < MATRIX_Y){
+            if (board.board[pos.pos_y-1][pos.pos_x-2].figure_type != FIGURE_END_LIST){
+                if (board.board[pos.pos_y-1][pos.pos_x-2].white != board.board[pos.pos_y][pos.pos_x].white){
+                    ESP_LOG(WARN, TAG, "Enemy figure y-1 x-2");
+                    array[empty_cells] = (((pos.pos_y-1)*MATRIX_Y) + pos.pos_x-2);
+                    empty_cells++;
+                }
+            } else {
+                ESP_LOG(WARN, TAG, "Y - 1 x - 2");
+                array[empty_cells] = (((pos.pos_y-1)*MATRIX_Y) + pos.pos_x-2);
+                empty_cells++;
+            }
+        }
+    }
+
+    ESP_LOG(INFO, TAG, "Calculated: %d", empty_cells);
+
+    for (uint8_t i = 0; i < empty_cells; i++){
+        ESP_LOG(INFO, TAG, "Found position: %d", array[i]);
+    }
+
+    if (empty_cells > 0) {
+        local_data.board.board[pos.pos_y][pos.pos_x].led_op(array, empty_cells);
+    }
+
+    
+
+    return ESP_OK;
+}
+
 static esp_err_t required_leds_calculation(figure_position_t updated_pos){
     
     chess_figures_t current_figure;
@@ -496,8 +654,11 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos){
 
             }
             break;
-            
+        case FIGURE_KNIGHT:
+            if (knight_led_calculation(updated_pos) != ESP_OK){
 
+            }
+            break;
 
         default:
             ESP_LOG(ERROR, TAG, "Incorrect figure type. Aborting");

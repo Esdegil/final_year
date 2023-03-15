@@ -22,6 +22,7 @@ ESP_EVENT_DECLARE_BASE(TEST_EVENTS);
 #define FULL_BOARD (MATRIX_X == 8 && MATRIX_Y == 8) // for developing 
 
 #define MAX_PAWN_MOVES 4 // TODO: rethink or recount this
+#define MAX_KNIGHT_MOVES 8
 
 #define PAWN_MAX_FORWARD_MOVEMENT 2
 
