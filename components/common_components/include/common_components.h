@@ -26,10 +26,17 @@ ESP_EVENT_DECLARE_BASE(TEST_EVENTS);
 
 #define PAWN_MAX_FORWARD_MOVEMENT 2
 
+#define MATRIX_TO_ARRAY_CONVERSION(pos_y, pos_x) (pos_y * MATRIX_Y + pos_x)
+
 typedef struct figure_position {
     uint8_t pos_x;
     uint8_t pos_y;
 } figure_position_t;
+
+typedef struct state_change_data {
+    figure_position_t pos;
+    bool lifted;
+} state_change_data_t;
 
 typedef void(*led_operation_t)(uint8_t*, uint8_t);// last () are arguments.
 
