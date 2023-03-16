@@ -14,7 +14,7 @@ typedef struct local_data{
 
     SemaphoreHandle_t lock;
 
-    bool switch_matrix[MATRIX_X+1][MATRIX_Y+1];
+    bool switch_matrix[MATRIX_X][MATRIX_Y];
 
 } local_data_t;
 
@@ -61,6 +61,10 @@ esp_err_t device_init(){
             local_data.switch_matrix[i][j] = false;
         }
     }
+    local_data.switch_matrix[0][0] = true;
+    local_data.switch_matrix[2][0] = true;
+    local_data.switch_matrix[2][1] = true;
+
     ESP_LOG(ERROR, TAG, "Before assigning %d", local_data.initialised);
 
     local_data.initialised = true;
@@ -105,8 +109,8 @@ static void print_array(){
 
 int pin_amount = 2;
 
-int pins[4] = {32, 33, 25};
-int out_pins[4] = {26, 27, 23};
+int pins[3] = {32, 33, 25};
+int out_pins[3] = {26, 27, 23};
 
 static void device_task(){
 
@@ -174,8 +178,8 @@ static void device_task(){
     }
 #endif
 
-    figure_position_t changed_state_figure;
 
+    state_change_data_t changed_state_figure;
     while(1){
 
         for(int i = 0; i < MATRIX_X; i++){
@@ -185,12 +189,14 @@ static void device_task(){
             }
             device_set_pin_level(pins[i], 1);
             for (int j = 0; j < MATRIX_Y; j++){
-                device_get_pin_level(out_pins[j], &level);
-                if ((bool)level != local_data.switch_matrix[i][j]){
-                    ESP_LOG(WARN, TAG, "Change detected at pin %d at level %d", out_pins[i], level);
-                    local_data.switch_matrix[i][j] = level ? true : false;
-                    changed_state_figure.pos_x = i;
-                    changed_state_figure.pos_y = j;
+                device_get_pin_level(out_pins[j], &level); 
+                // TODO: double check about this reversed order
+                if ((bool)level != local_data.switch_matrix[j][i]){
+                    ESP_LOG(WARN, TAG, "Change detected at pin %d  with pin %d set. at level %d array id %d:%d", out_pins[i], pins[j], level, j, i);
+                    local_data.switch_matrix[j][i] = level ? true : false;
+                    changed_state_figure.lifted = !level; // TODO: double check this
+                    changed_state_figure.pos.pos_x = i;
+                    changed_state_figure.pos.pos_y = j;
                     if (update_board_on_lift(changed_state_figure) != ESP_OK){
                         ESP_LOG(ERROR, TAG, "Failed to update chess engine from device service");
                     }
@@ -213,12 +219,12 @@ static void device_task(){
 esp_err_t device_get_pin_level(int pin, uint8_t *level){
     *level = gpio_get_level(pin);
     
-    ESP_LOG(INFO, TAG, "reading pin %d level %d", pin, *level);
+    //ESP_LOG(INFO, TAG, "reading pin %d level %d", pin, *level);
     return ESP_OK;
 }
 
 esp_err_t device_set_pin_level(int pin, uint8_t level) {
-    ESP_LOG(INFO, TAG,"setting pin %d to level %d", pin, level);
+    //ESP_LOG(INFO, TAG,"setting pin %d to level %d", pin, level);
     if (gpio_set_level(pin, level) != ESP_OK){
         ESP_LOG(ERROR, TAG, "error occured");
         return ESP_FAIL;
