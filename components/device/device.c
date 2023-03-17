@@ -61,10 +61,9 @@ esp_err_t device_init(){
             local_data.switch_matrix[i][j] = false;
         }
     }
-    local_data.switch_matrix[0][0] = true;
-    local_data.switch_matrix[2][0] = true;
-    local_data.switch_matrix[2][1] = true;
-
+    
+    
+    
     ESP_LOG(ERROR, TAG, "Before assigning %d", local_data.initialised);
 
     local_data.initialised = true;
@@ -177,6 +176,25 @@ static void device_task(){
 
     }
 #endif
+
+    for(int i = 0; i < MATRIX_X; i++){
+            for (int j = 0; j < MATRIX_Y; j++){
+
+                device_set_pin_level(pins[j], 0);
+            }
+            device_set_pin_level(pins[i], 1);
+            for (int j = 0; j < MATRIX_Y; j++){
+                device_get_pin_level(out_pins[j], &level); 
+                // TODO: double check about this reversed order
+                if ((bool)level != local_data.switch_matrix[j][i]){
+                    ESP_LOG(WARN, TAG, "Change detected at pin %d  with pin %d set. at level %d array id %d:%d", out_pins[i], pins[j], level, j, i);
+                    local_data.switch_matrix[j][i] = level ? true : false;
+                    
+                }
+                ESP_LOG(WARN, TAG, "Pin %d  pos %d level %d", out_pins[i], j, level);
+                print_array();
+            }
+        }
 
 
     state_change_data_t changed_state_figure;
