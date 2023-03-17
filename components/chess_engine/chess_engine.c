@@ -127,7 +127,7 @@ esp_err_t chess_engine_init(){
     // Rest of the board
 
         local_data.board.board[1][0].figure_type = FIGURE_END_LIST;
-        local_data.board.board[1][1].figure_type = FIGURE_BISHOP;
+        local_data.board.board[1][1].figure_type = FIGURE_QUEEN;
         local_data.board.board[1][2].figure_type = FIGURE_END_LIST;
 
 
@@ -392,6 +392,9 @@ static uint8_t required_cells_calculation_left(chess_board_t board, figure_posit
             required_cells--;
         }
     }
+
+    
+
     return required_cells;
 }
 
@@ -460,90 +463,88 @@ static esp_err_t required_cells_calculation_diagonal(chess_board_t board, figure
     return required_cells;
 }
 
-static esp_err_t populate_led_array_direct(uint8_t *array, uint8_t fw, uint8_t bc, uint8_t r, uint8_t l, figure_position_t pos){
+static esp_err_t populate_led_array_direct(uint8_t *array, uint8_t fw, uint8_t bc, uint8_t r, uint8_t l, figure_position_t pos, uint8_t *counter){
 
-    if (!array){
-        ESP_LOG(ERROR, TAG, "Null array ptr. Aborting");
+    if (!array || !counter){
+        ESP_LOG(ERROR, TAG, "Null array or counter ptr. Aborting");
         return ESP_FAIL;
     }
 
-    uint8_t counter = 0;
+    
 
     
         for (int i = 1; i <= fw; i++){
-            array[counter] = (((pos.pos_y+i)*MATRIX_Y) + pos.pos_x);
+            array[*counter] = (((pos.pos_y+i)*MATRIX_Y) + pos.pos_x);
             ESP_LOG(INFO, TAG, "y %d x %d calc %d", pos.pos_y, pos.pos_x, (((pos.pos_y+i)*MATRIX_Y) + pos.pos_x));
-            counter++;
+            (*counter)++;
         }
     
     
         for (int i = 1; i <= bc; i++){
-            array[counter] = (((pos.pos_y-i)*MATRIX_Y) + pos.pos_x);
-            counter++;
+            array[*counter] = (((pos.pos_y-i)*MATRIX_Y) + pos.pos_x);
+            (*counter)++;
         }
     
 
     
         for (int i = 1; i <= r; i++){
-            array[counter] = ((pos.pos_y*MATRIX_Y) + (pos.pos_x+i));
-            counter++;
+            array[*counter] = ((pos.pos_y*MATRIX_Y) + (pos.pos_x+i));
+            (*counter)++;
         }
     
 
     
         for (int i = 1; i <= l; i++){
-            array[counter] = ((pos.pos_y*MATRIX_Y) + (pos.pos_x-i));
-            counter++;
+            array[*counter] = ((pos.pos_y*MATRIX_Y) + (pos.pos_x-i));
+            (*counter)++;
         }
     
-    ESP_LOG(INFO, TAG, "%d position filled", counter);
+    ESP_LOG(INFO, TAG, "%d position filled", *counter);
 
-    for (uint8_t i = 0; i < counter; i++){
+    for (uint8_t i = 0; i < *counter; i++){
         ESP_LOG(INFO, TAG, "populated with: %d", array[i]);
     }
 
     return ESP_OK;
 }
 
-static esp_err_t populate_led_array_diagonal(uint8_t* array, uint8_t lf, uint8_t lb, uint8_t rf, uint8_t rb, figure_position_t pos) {
+static esp_err_t populate_led_array_diagonal(uint8_t* array, uint8_t lf, uint8_t lb, uint8_t rf, uint8_t rb, figure_position_t pos, uint8_t *counter) {
 
-    if (!array){
-        ESP_LOG(ERROR, TAG, "Null array ptr. Aborting");
+    if (!array || !counter){
+        ESP_LOG(ERROR, TAG, "Null array or counter ptr. Aborting");
         return ESP_FAIL;
     }
 
-    uint8_t counter = 0;
-
     
         for (int i = 1; i <= lf; i++){
-            array[counter] = MATRIX_TO_ARRAY_CONVERSION((pos.pos_y + i), (pos.pos_y - i));
+            array[*counter] = MATRIX_TO_ARRAY_CONVERSION((pos.pos_y + i), (pos.pos_y - i));
             //ESP_LOG(INFO, TAG, "y %d x %d calc %d", pos.pos_y, pos.pos_x, (((pos.pos_y+i)*MATRIX_Y) + pos.pos_x));
-            counter++;
+            (*counter)++;
         }
     
     
         for (int i = 1; i <= lb; i++){
-            array[counter] = MATRIX_TO_ARRAY_CONVERSION((pos.pos_y - i), (pos.pos_y - i));
-            counter++;
+            array[*counter] = MATRIX_TO_ARRAY_CONVERSION((pos.pos_y - i), (pos.pos_y - i));
+            (*counter)++;
         }
     
 
     
         for (int i = 1; i <= rf; i++){
-            array[counter] = MATRIX_TO_ARRAY_CONVERSION((pos.pos_y + i), (pos.pos_y + i));
-            counter++;
+            array[*counter] = MATRIX_TO_ARRAY_CONVERSION((pos.pos_y + i), (pos.pos_y + i));
+            (*counter)++;
         }
     
 
     
         for (int i = 1; i <= rb; i++){
-            array[counter] = MATRIX_TO_ARRAY_CONVERSION((pos.pos_y - i), (pos.pos_y + i));
-            counter++;
+            array[*counter] = MATRIX_TO_ARRAY_CONVERSION((pos.pos_y - i), (pos.pos_y + i));
+            (*counter)++;
         }
     
-    ESP_LOG(INFO, TAG, "%d position filled", counter);
+    ESP_LOG(INFO, TAG, "%d position filled", *counter);
 
-    for (uint8_t i = 0; i < counter; i++){
+    for (uint8_t i = 0; i < *counter; i++){
         ESP_LOG(INFO, TAG, "populated with: %d", array[i]);
     }
 
@@ -592,7 +593,9 @@ static esp_err_t rook_led_calculation(figure_position_t pos){
         return ESP_FAIL;
     }
 
-    populate_led_array_direct(arr_ptr, forward_cells, backward_cells, right_cells, left_cells, pos);
+    uint8_t counter = 0;
+
+    populate_led_array_direct(arr_ptr, forward_cells, backward_cells, right_cells, left_cells, pos, &counter);
 
     local_data.board.board[pos.pos_y][pos.pos_x].led_op(arr_ptr, total_cells);
 
@@ -813,7 +816,9 @@ static esp_err_t bishop_led_calculation(figure_position_t pos) {
         return ESP_FAIL;
     }
 
-    if (populate_led_array_diagonal(arr_ptr, left_forward, left_backward, right_forward, right_backward, pos) != ESP_OK){
+    uint8_t counter = 0;
+
+    if (populate_led_array_diagonal(arr_ptr, left_forward, left_backward, right_forward, right_backward, pos, &counter) != ESP_OK){
         ESP_LOG(ERROR, TAG, "Failed to populate diagonal array");
         if (arr_ptr){
             ESP_LOG(WARN, TAG, "FREE");
@@ -832,6 +837,106 @@ static esp_err_t bishop_led_calculation(figure_position_t pos) {
     }
 
     return ESP_OK;
+}
+
+static esp_err_t queen_led_calculation(figure_position_t pos) {
+
+    chess_board_t board;
+
+    if(access_lock()){
+        board = local_data.board;
+        release_lock();
+    } else {
+        return ESP_FAIL;
+    }
+
+    uint8_t left_forward = 0;
+    uint8_t left_backward = 0;
+    uint8_t right_forward = 0;
+    uint8_t right_backward = 0;
+
+    left_forward = required_cells_calculation_diagonal(board, pos, LEFT_MOD, FORWARD_MOD);
+    if (left_forward == POSITION_CALCULATION_ERROR){
+        return ESP_FAIL;
+    }
+    left_backward = required_cells_calculation_diagonal(board, pos, LEFT_MOD, BACKWARD_MOD);
+    if (left_backward == POSITION_CALCULATION_ERROR){
+        return ESP_FAIL;
+    }
+    right_forward = required_cells_calculation_diagonal(board, pos, RIGHT_MOD, FORWARD_MOD);
+    if (right_forward == POSITION_CALCULATION_ERROR){
+        return ESP_FAIL;
+    }
+    right_backward = required_cells_calculation_diagonal(board, pos, RIGHT_MOD, BACKWARD_MOD);
+    if (right_backward == POSITION_CALCULATION_ERROR){
+        return ESP_FAIL;
+    }
+
+    uint8_t total_diagonal = left_forward + left_backward + right_forward + right_backward;
+
+    uint8_t forward_cells = 0;
+    uint8_t backward_cells = 0;
+    uint8_t right_cells = 0;
+    uint8_t left_cells = 0;
+
+    forward_cells = required_cells_calculation_forward(board, pos);
+    backward_cells = required_cells_calculation_backward(board, pos);
+    right_cells = required_cells_calculation_right(board, pos);
+    left_cells = required_cells_calculation_left(board, pos);
+
+    uint8_t total_direct = forward_cells + backward_cells + right_cells + left_cells;
+
+    uint8_t total_combined = total_diagonal + total_direct;
+
+    if (total_combined == 0) {
+        ESP_LOG(WARN, TAG, "No possible moves for bishop or calculations are wrong");
+        return ESP_FAIL;
+    }
+
+    uint8_t *arr_ptr = NULL;
+
+    ESP_LOG(WARN, TAG, "MALLOC");
+    arr_ptr = calloc(total_combined, sizeof(uint8_t));
+
+    if (!arr_ptr){
+        ESP_LOG(ERROR, TAG, "Failed to malloc. Aborting");
+        arr_ptr = NULL;
+        return ESP_FAIL;
+    }
+
+    uint8_t counter = 0;
+
+    if (populate_led_array_diagonal(arr_ptr, left_forward, left_backward, right_forward, right_backward, pos, &counter) != ESP_OK){
+        ESP_LOG(ERROR, TAG, "Failed to populate diagonal array");
+        if (arr_ptr){
+            ESP_LOG(WARN, TAG, "FREE");
+            free(arr_ptr);
+        }
+        arr_ptr = NULL;
+        return ESP_FAIL;
+    }
+
+    if (populate_led_array_direct(arr_ptr, forward_cells, backward_cells, right_cells, left_cells, pos, &counter) != ESP_OK) {
+        ESP_LOG(ERROR, TAG, "Failed to populate direct array");
+        if (arr_ptr){
+            ESP_LOG(WARN, TAG, "FREE");
+            free(arr_ptr);
+        }
+        arr_ptr = NULL;
+        return ESP_FAIL;
+    }
+
+    local_data.board.board[pos.pos_y][pos.pos_x].led_op(arr_ptr, total_combined);
+
+    
+    if (arr_ptr){
+        ESP_LOG(WARN, TAG, "FREE");
+        free(arr_ptr);
+    }
+
+    return ESP_OK;
+
+
 }
 
 static esp_err_t required_leds_calculation(figure_position_t updated_pos){
@@ -862,6 +967,11 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos){
             break;
         case FIGURE_BISHOP:
             if (bishop_led_calculation(updated_pos) != ESP_OK){
+
+            }
+            break;
+        case FIGURE_QUEEN:
+            if (queen_led_calculation(updated_pos) != ESP_OK){
 
             }
             break;
