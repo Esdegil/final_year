@@ -215,12 +215,13 @@ static void device_task(){
                     changed_state_figure.lifted = !level; // TODO: double check this
                     changed_state_figure.pos.pos_x = i;
                     changed_state_figure.pos.pos_y = j;
+                    print_array();
                     if (update_board_on_lift(changed_state_figure) != ESP_OK){
                         ESP_LOG(ERROR, TAG, "Failed to update chess engine from device service");
                     }
                 }
                 ESP_LOG(WARN, TAG, "Pin %d  pos %d level %d", out_pins[i], j, level);
-                print_array();
+                
             }
         }
         

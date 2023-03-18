@@ -6,10 +6,14 @@
 #define TASK_NAME "chess_engine_task"
 
 #define POSITION_CALCULATION_ERROR 255
+
 #define BACKWARD_MOD -1
 #define FORWARD_MOD 1
 #define LEFT_MOD -1
 #define RIGHT_MOD 1
+
+#define HORISONTAL_LOCK 1
+#define VERTICAL_LOCK 1
 
 typedef struct local_data{
 
@@ -398,9 +402,126 @@ static uint8_t required_cells_calculation_left(chess_board_t board, figure_posit
     return required_cells;
 }
 
+static uint8_t required_cells_calculation_vertical(chess_board_t board, figure_position_t pos, int8_t mod_y){
+    ESP_LOG(DEBUG, TAG, "Mods passed y:%d", mod_y)
+
+    if (mod_y != FORWARD_MOD && mod_y != BACKWARD_MOD){
+        ESP_LOG(ERROR, TAG, "Incorrect mod_y modificator passed. returning 255");
+        return POSITION_CALCULATION_ERROR;
+    }
+
+    uint8_t required_cells = 0; 
+    bool loop_broken = false;
+
+
+    for (int i = 1; !(board.board[pos.pos_y + (i * mod_y)][pos.pos_x].figure_type != FIGURE_END_LIST); i++){
+
+        required_cells++;
+        if((uint8_t)(pos.pos_y + (i*mod_y)) >= MATRIX_Y){ // TODO: double check this as well
+            required_cells--;
+            loop_broken = true;
+            ESP_LOG(ERROR, TAG, "Left Loop broken");
+            break;
+        }
+        ESP_LOG(WARN, TAG, "Checks passed on %d:%d", pos.pos_y + (i * mod_y), pos.pos_x);
+
+    }
+
+    if (!loop_broken && required_cells != 0){
+        if (board.board[pos.pos_y + (required_cells * mod_y)][pos.pos_x].figure_type != FIGURE_END_LIST && board.board[pos.pos_y + (required_cells * mod_y)][pos.pos_x].white == board.board[pos.pos_y][pos.pos_x].white){
+            ESP_LOG(WARN, TAG, "same colour figure");
+            required_cells--;
+        }
+    } else if (!loop_broken && required_cells == 0) {
+
+        uint8_t adj_modified_y = pos.pos_y + mod_y;
+
+        ESP_LOG(DEBUG, TAG, "Modified uint8 y %d", adj_modified_y);
+
+        if (adj_modified_y >= MATRIX_X){
+            ESP_LOG(INFO, TAG, "out of x bounds");
+        } else if (board.board[pos.pos_y + adj_modified_y][pos.pos_x].figure_type != FIGURE_END_LIST){
+
+            ESP_LOG(DEBUG, TAG, "adj mod y:%d. Y position after mod applied %d",mod_y, pos.pos_y + adj_modified_y);
+
+            
+
+            if(board.board[pos.pos_y + adj_modified_y][pos.pos_x].white != board.board[pos.pos_y][pos.pos_x].white){
+                ESP_LOG(WARN, TAG, "Enemy figure adjacent");
+                required_cells++;
+            }
+
+        }
+        
+    }
+
+    return required_cells;
+
+
+}
+
+static uint8_t required_cells_calculation_horisontal(chess_board_t board, figure_position_t pos, int8_t mod_x) {
+
+    ESP_LOG(DEBUG, TAG, "Mods passed x:%d", mod_x)
+
+    if (mod_x != RIGHT_MOD && mod_x != LEFT_MOD){
+        ESP_LOG(ERROR, TAG, "Incorrect mod_x modificator passed. returning 255");
+        return POSITION_CALCULATION_ERROR;
+    }
+
+    uint8_t required_cells = 0; 
+    bool loop_broken = false;
+
+
+    for (int i = 1; !(board.board[pos.pos_y][pos.pos_x + (i * mod_x)].figure_type != FIGURE_END_LIST); i++){
+
+        required_cells++;
+        if((uint8_t)(pos.pos_x + (i*mod_x)) >= MATRIX_X){ // TODO: double check this as well
+            required_cells--;
+            loop_broken = true;
+            ESP_LOG(ERROR, TAG, "Left Loop broken");
+            break;
+        }
+        ESP_LOG(WARN, TAG, "Checks passed on %d:%d", pos.pos_y, pos.pos_x+ (i * mod_x));
+
+    }
+
+    if (!loop_broken && required_cells != 0){
+        if (board.board[pos.pos_y][pos.pos_x + (required_cells * mod_x)].figure_type != FIGURE_END_LIST && board.board[pos.pos_y][pos.pos_x + (required_cells * mod_x)].white == board.board[pos.pos_y][pos.pos_x].white){
+            ESP_LOG(WARN, TAG, "same colour figure");
+            required_cells--;
+        }
+    } else if (!loop_broken && required_cells == 0) {
+
+        uint8_t adj_modified_x = pos.pos_x + mod_x;
+
+        ESP_LOG(DEBUG, TAG, "Modified uint8 x %d",adj_modified_x);
+
+        if (adj_modified_x >= MATRIX_X){
+            ESP_LOG(INFO, TAG, "out of x bounds");
+        } else if (board.board[pos.pos_y][pos.pos_x + adj_modified_x].figure_type != FIGURE_END_LIST){
+
+            ESP_LOG(DEBUG, TAG, "mod x:%d. X position after mod applied %d",mod_x, pos.pos_x + adj_modified_x);
+
+            
+
+            if(board.board[pos.pos_y][pos.pos_x + adj_modified_x].white != board.board[pos.pos_y][pos.pos_x].white){
+                ESP_LOG(WARN, TAG, "Enemy figure adjacent");
+                required_cells++;
+            }
+
+        }
+        
+    }
+
+    return required_cells;
+
+
+}
+
 static esp_err_t required_cells_calculation_diagonal(chess_board_t board, figure_position_t pos, int mod_x, int mod_y) {
     
-    ESP_LOG(INFO, TAG, "Mods passed y:%d x:%d", mod_y, mod_x)
+    ESP_LOG(DEBUG, TAG, "Mods passed y:%d x:%d", mod_y, mod_x)
 
     if (mod_x != RIGHT_MOD && mod_x != LEFT_MOD){
         ESP_LOG(ERROR, TAG, "Incorrect mod_x modificator passed. returning 255");
@@ -470,12 +591,11 @@ static esp_err_t populate_led_array_direct(uint8_t *array, uint8_t fw, uint8_t b
         return ESP_FAIL;
     }
 
-    
+    ESP_LOG(INFO, TAG, "Filling horisontal and vertical");
 
     
         for (int i = 1; i <= fw; i++){
             array[*counter] = (((pos.pos_y+i)*MATRIX_Y) + pos.pos_x);
-            ESP_LOG(INFO, TAG, "y %d x %d calc %d", pos.pos_y, pos.pos_x, (((pos.pos_y+i)*MATRIX_Y) + pos.pos_x));
             (*counter)++;
         }
     
@@ -515,30 +635,36 @@ static esp_err_t populate_led_array_diagonal(uint8_t* array, uint8_t lf, uint8_t
         return ESP_FAIL;
     }
 
+    ESP_LOG(WARN, TAG, "Current pos %d:%d", pos.pos_y, pos.pos_x);
+
+    ESP_LOG(INFO, TAG, "Filling diagonal");
     
         for (int i = 1; i <= lf; i++){
-            array[*counter] = MATRIX_TO_ARRAY_CONVERSION((pos.pos_y + i), (pos.pos_y - i));
-            //ESP_LOG(INFO, TAG, "y %d x %d calc %d", pos.pos_y, pos.pos_x, (((pos.pos_y+i)*MATRIX_Y) + pos.pos_x));
+            array[*counter] = MATRIX_TO_ARRAY_CONVERSION((pos.pos_y + i), (pos.pos_x - i));
+            ESP_LOG(DEBUG, TAG, "ids %d:%d Calculated lf pos: %d", pos.pos_y + i, pos.pos_x - i, array[*counter]);
             (*counter)++;
         }
     
     
         for (int i = 1; i <= lb; i++){
-            array[*counter] = MATRIX_TO_ARRAY_CONVERSION((pos.pos_y - i), (pos.pos_y - i));
+            array[*counter] = MATRIX_TO_ARRAY_CONVERSION((pos.pos_y - i), (pos.pos_x - i));
+            ESP_LOG(DEBUG, TAG, "ids %d:%d Calculated lb pos: %d", pos.pos_y - i, pos.pos_x - i, array[*counter]);
             (*counter)++;
         }
     
 
     
         for (int i = 1; i <= rf; i++){
-            array[*counter] = MATRIX_TO_ARRAY_CONVERSION((pos.pos_y + i), (pos.pos_y + i));
+            array[*counter] = MATRIX_TO_ARRAY_CONVERSION((pos.pos_y + i), (pos.pos_x + i));
+            ESP_LOG(DEBUG, TAG, "ids %d:%d Calculated rf pos: %d", pos.pos_y + i, pos.pos_x + i, array[*counter]);
             (*counter)++;
         }
     
 
     
         for (int i = 1; i <= rb; i++){
-            array[*counter] = MATRIX_TO_ARRAY_CONVERSION((pos.pos_y - i), (pos.pos_y + i));
+            array[*counter] = MATRIX_TO_ARRAY_CONVERSION((pos.pos_y - i), (pos.pos_x + i));
+            ESP_LOG(DEBUG, TAG, "ids %d:%d Calculated rb pos: %d", pos.pos_y - i, pos.pos_x + i, array[*counter]);
             (*counter)++;
         }
     
@@ -572,10 +698,30 @@ static esp_err_t rook_led_calculation(figure_position_t pos){
     uint8_t right_cells = 0;
     uint8_t left_cells = 0;
 
-    forward_cells = required_cells_calculation_forward(board, pos);
-    backward_cells = required_cells_calculation_backward(board, pos);
-    right_cells = required_cells_calculation_right(board, pos);
-    left_cells = required_cells_calculation_left(board, pos);
+    
+    forward_cells = required_cells_calculation_vertical(board, pos, FORWARD_MOD);
+    
+    if (forward_cells == POSITION_CALCULATION_ERROR) {
+        return ESP_FAIL;
+    }
+
+    backward_cells = required_cells_calculation_vertical(board, pos, BACKWARD_MOD);
+    
+    if (backward_cells == POSITION_CALCULATION_ERROR) {
+        return ESP_FAIL;
+    }
+
+    right_cells = required_cells_calculation_horisontal(board, pos, RIGHT_MOD);
+    
+    if (right_cells == POSITION_CALCULATION_ERROR) {
+        return ESP_FAIL;
+    }
+
+    left_cells = required_cells_calculation_horisontal(board, pos, LEFT_MOD);
+
+    if (right_cells == POSITION_CALCULATION_ERROR) {
+        return ESP_FAIL;
+    }
 
     uint8_t total_cells = forward_cells+backward_cells+right_cells+left_cells;
 
@@ -855,6 +1001,8 @@ static esp_err_t queen_led_calculation(figure_position_t pos) {
     uint8_t right_forward = 0;
     uint8_t right_backward = 0;
 
+    ESP_LOG(INFO, TAG, "Calculating diagonal moves for queen");
+
     left_forward = required_cells_calculation_diagonal(board, pos, LEFT_MOD, FORWARD_MOD);
     if (left_forward == POSITION_CALCULATION_ERROR){
         return ESP_FAIL;
@@ -879,10 +1027,31 @@ static esp_err_t queen_led_calculation(figure_position_t pos) {
     uint8_t right_cells = 0;
     uint8_t left_cells = 0;
 
-    forward_cells = required_cells_calculation_forward(board, pos);
-    backward_cells = required_cells_calculation_backward(board, pos);
-    right_cells = required_cells_calculation_right(board, pos);
-    left_cells = required_cells_calculation_left(board, pos);
+    ESP_LOG(INFO, TAG, "Calculating horisontal and vertical moves for queen");
+
+    forward_cells = required_cells_calculation_vertical(board, pos, FORWARD_MOD);
+    
+    if (forward_cells == POSITION_CALCULATION_ERROR) {
+        return ESP_FAIL;
+    }
+
+    backward_cells = required_cells_calculation_vertical(board, pos, BACKWARD_MOD);
+    
+    if (backward_cells == POSITION_CALCULATION_ERROR) {
+        return ESP_FAIL;
+    }
+
+    right_cells = required_cells_calculation_horisontal(board, pos, RIGHT_MOD);
+    
+    if (right_cells == POSITION_CALCULATION_ERROR) {
+        return ESP_FAIL;
+    }
+
+    left_cells = required_cells_calculation_horisontal(board, pos, LEFT_MOD);
+
+    if (right_cells == POSITION_CALCULATION_ERROR) {
+        return ESP_FAIL;
+    }
 
     uint8_t total_direct = forward_cells + backward_cells + right_cells + left_cells;
 
