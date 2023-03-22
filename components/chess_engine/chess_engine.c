@@ -15,6 +15,8 @@
 #define HORISONTAL_LOCK 1
 #define VERTICAL_LOCK 1
 
+#define NO_LIMIT_FOR_MOVES 0
+
 typedef struct local_data{
 
     bool initialised;
@@ -84,7 +86,7 @@ esp_err_t chess_engine_init(){
     // White figures init
         local_data.board.board[0][0].figure_type = FIGURE_END_LIST;
         local_data.board.board[0][1].figure_type = FIGURE_END_LIST;
-        local_data.board.board[0][2].figure_type = FIGURE_END_LIST;
+        local_data.board.board[0][2].figure_type = FIGURE_KING;
 
         local_data.board.board[0][0].white = true;
         local_data.board.board[0][1].white = true;
@@ -303,7 +305,7 @@ static esp_err_t pawn_led_calculation(figure_position_t pos) {
     return ESP_OK;
 }
 
-static uint8_t required_cells_calculation_vertical(chess_board_t board, figure_position_t pos, int8_t mod_y){
+static uint8_t required_cells_calculation_vertical(chess_board_t board, figure_position_t pos, int8_t mod_y, uint8_t limit){
     ESP_LOG(DEBUG, TAG, "Mods passed y:%d", mod_y)
 
     if (mod_y != FORWARD_MOD && mod_y != BACKWARD_MOD){
@@ -311,12 +313,21 @@ static uint8_t required_cells_calculation_vertical(chess_board_t board, figure_p
         return POSITION_CALCULATION_ERROR;
     }
 
+    uint8_t updated_limit = NO_LIMIT_FOR_MOVES;
+    if (limit == 0) {
+        updated_limit = MATRIX_Y + 1;
+    } else {
+        updated_limit = limit;
+    }
+
+    ESP_LOG(DEBUG, TAG, "Updated limit: %d", updated_limit);
+
     uint8_t required_cells = 0; 
     bool loop_broken = false;
 
 
-    for (int i = 1; !(board.board[pos.pos_y + (i * mod_y)][pos.pos_x].figure_type != FIGURE_END_LIST); i++){
-
+    for (int i = 1; !(board.board[pos.pos_y + (i * mod_y)][pos.pos_x].figure_type != FIGURE_END_LIST) && i <= updated_limit; i++){
+        ESP_LOG(DEBUG, TAG, "Current i: %d limit %d", i, updated_limit);
         required_cells++;
         if((uint8_t)(pos.pos_y + (i*mod_y)) >= MATRIX_Y){ // TODO: double check this as well
             required_cells--;
@@ -329,9 +340,22 @@ static uint8_t required_cells_calculation_vertical(chess_board_t board, figure_p
     }
 
     if (!loop_broken && required_cells != 0){
+
+        uint8_t adj_modified_y = pos.pos_y + ((required_cells + 1) * mod_y);
+
+        ESP_LOG(DEBUG, TAG, "Modified uint8 y %d", adj_modified_y);
+
         if (board.board[pos.pos_y + (required_cells * mod_y)][pos.pos_x].figure_type != FIGURE_END_LIST && board.board[pos.pos_y + (required_cells * mod_y)][pos.pos_x].white == board.board[pos.pos_y][pos.pos_x].white){
             ESP_LOG(WARN, TAG, "same colour figure");
             required_cells--;
+        } else if (adj_modified_y < MATRIX_Y){
+            ESP_LOG(WARN, TAG, "Not out of bounds vertical");
+            if (board.board[pos.pos_y + ((required_cells + 1) * mod_y)][pos.pos_x].figure_type != FIGURE_END_LIST) { 
+                if (board.board[pos.pos_y + ((required_cells + 1) * mod_y)][pos.pos_x].white != board.board[pos.pos_y][pos.pos_x].white) {
+                    ESP_LOG(INFO, TAG, "//////////////////// Enemy figure on %d:%d", pos.pos_y + ((required_cells + 1) * mod_y), pos.pos_x );
+                required_cells++;
+                }
+            }
         }
     } else if (!loop_broken && required_cells == 0) {
 
@@ -361,7 +385,7 @@ static uint8_t required_cells_calculation_vertical(chess_board_t board, figure_p
 
 }
 
-static uint8_t required_cells_calculation_horisontal(chess_board_t board, figure_position_t pos, int8_t mod_x) {
+static uint8_t required_cells_calculation_horisontal(chess_board_t board, figure_position_t pos, int8_t mod_x, uint8_t limit) {
 
     ESP_LOG(DEBUG, TAG, "Mods passed x:%d", mod_x)
 
@@ -370,11 +394,18 @@ static uint8_t required_cells_calculation_horisontal(chess_board_t board, figure
         return POSITION_CALCULATION_ERROR;
     }
 
+    uint8_t updated_limit = NO_LIMIT_FOR_MOVES;
+    if (limit == 0) {
+        updated_limit = MATRIX_Y + 1;
+    } else {
+        updated_limit = limit;
+    }
+
     uint8_t required_cells = 0; 
     bool loop_broken = false;
 
 
-    for (int i = 1; !(board.board[pos.pos_y][pos.pos_x + (i * mod_x)].figure_type != FIGURE_END_LIST); i++){
+    for (int i = 1; !(board.board[pos.pos_y][pos.pos_x + (i * mod_x)].figure_type != FIGURE_END_LIST) && i <= updated_limit; i++){
 
         required_cells++;
         if((uint8_t)(pos.pos_x + (i*mod_x)) >= MATRIX_X){ // TODO: double check this as well
@@ -388,9 +419,22 @@ static uint8_t required_cells_calculation_horisontal(chess_board_t board, figure
     }
 
     if (!loop_broken && required_cells != 0){
+
+        uint8_t adj_modified_x = pos.pos_x + ((required_cells + 1) * mod_x);
+
+        ESP_LOG(DEBUG, TAG, "Modified uint8 x %d",adj_modified_x);
+
         if (board.board[pos.pos_y][pos.pos_x + (required_cells * mod_x)].figure_type != FIGURE_END_LIST && board.board[pos.pos_y][pos.pos_x + (required_cells * mod_x)].white == board.board[pos.pos_y][pos.pos_x].white){
             ESP_LOG(WARN, TAG, "same colour figure");
             required_cells--;
+        } else if (adj_modified_x < MATRIX_X) { 
+            ESP_LOG(WARN, TAG, "Not out of bounds horisontal");
+            if (board.board[pos.pos_y][pos.pos_x + ((required_cells + 1) * mod_x)].figure_type != FIGURE_END_LIST) { 
+                if (board.board[pos.pos_y][pos.pos_x + ((required_cells + 1) * mod_x)].white != board.board[pos.pos_y][pos.pos_x].white) {
+                    ESP_LOG(INFO, TAG, "//////////////////// Enemy figure on %d:%d", pos.pos_x, pos.pos_x + ((required_cells + 1) * mod_x ));
+                    required_cells++;
+        }
+        }
         }
     } else if (!loop_broken && required_cells == 0) {
 
@@ -420,7 +464,7 @@ static uint8_t required_cells_calculation_horisontal(chess_board_t board, figure
 
 }
 
-static esp_err_t required_cells_calculation_diagonal(chess_board_t board, figure_position_t pos, int mod_x, int mod_y) {
+static esp_err_t required_cells_calculation_diagonal(chess_board_t board, figure_position_t pos, int mod_x, int mod_y, uint8_t limit) {
     
     ESP_LOG(DEBUG, TAG, "Mods passed y:%d x:%d", mod_y, mod_x)
 
@@ -433,12 +477,19 @@ static esp_err_t required_cells_calculation_diagonal(chess_board_t board, figure
         ESP_LOG(ERROR, TAG, "Incorrect mod_y modificator passed. returning 255");
         return POSITION_CALCULATION_ERROR;
     }
+
+    uint8_t updated_limit = NO_LIMIT_FOR_MOVES;
+    if (limit == 0) {
+        updated_limit = MATRIX_Y + 1;
+    } else {
+        updated_limit = limit;
+    }
     
     uint8_t required_cells = 0; 
     bool loop_broken = false;
 
 
-    for (int i = 1; !(board.board[pos.pos_y + (i * mod_y)][pos.pos_x + (i * mod_x)].figure_type != FIGURE_END_LIST); i++){
+    for (int i = 1; !(board.board[pos.pos_y + (i * mod_y)][pos.pos_x + (i * mod_x)].figure_type != FIGURE_END_LIST) && i <= updated_limit; i++){
 
         required_cells++;
         if((uint8_t)(pos.pos_x + (i*mod_x)) >= MATRIX_X || ((uint8_t)(pos.pos_y + (i * mod_y)) >= MATRIX_Y)){ // TODO: double check this as well
@@ -453,11 +504,27 @@ static esp_err_t required_cells_calculation_diagonal(chess_board_t board, figure
 
     
 
+    
+
     if (!loop_broken && required_cells != 0){
+
+        uint8_t adj_modified_y = pos.pos_y + ((required_cells + 1) * mod_y);
+        uint8_t adj_modified_x = pos.pos_x + ((required_cells + 1) * mod_x);
+
+        ESP_LOG(DEBUG, TAG, "Modified uint8s %d:%d", adj_modified_y,adj_modified_x);
+
         if (board.board[pos.pos_y + (required_cells * mod_y)][pos.pos_x + (required_cells * mod_x)].figure_type != FIGURE_END_LIST && board.board[pos.pos_y + (required_cells * mod_y)][pos.pos_x + (required_cells * mod_x)].white == board.board[pos.pos_y][pos.pos_x].white){
             ESP_LOG(WARN, TAG, "same colour figure");
             required_cells--;
-        }
+        } else if (adj_modified_y < MATRIX_Y && adj_modified_x < MATRIX_X){
+            ESP_LOG(WARN, TAG, "Not out of bounds diagonal");
+            if (board.board[pos.pos_y + ((required_cells + 1) * mod_y)][pos.pos_x + ((required_cells + 1) * mod_x)].figure_type != FIGURE_END_LIST){
+                if (board.board[pos.pos_y + ((required_cells + 1) * mod_y)][pos.pos_x + ((required_cells + 1) * mod_x)].white != board.board[pos.pos_y][pos.pos_x].white) {
+                    ESP_LOG(INFO, TAG, "//////////////////// Enemy figure on %d:%d", pos.pos_y + ((required_cells + 1) * mod_y), pos.pos_x + ((required_cells + 1) * mod_x ));
+                     required_cells++;
+                }
+            }
+        } 
     } else if (!loop_broken && required_cells == 0) {
 
         uint8_t adj_modified_y = pos.pos_y + mod_y;
@@ -600,25 +667,25 @@ static esp_err_t rook_led_calculation(figure_position_t pos){
     uint8_t left_cells = 0;
 
     
-    forward_cells = required_cells_calculation_vertical(board, pos, FORWARD_MOD);
+    forward_cells = required_cells_calculation_vertical(board, pos, FORWARD_MOD, NO_LIMIT_FOR_MOVES);
     
     if (forward_cells == POSITION_CALCULATION_ERROR) {
         return ESP_FAIL;
     }
 
-    backward_cells = required_cells_calculation_vertical(board, pos, BACKWARD_MOD);
+    backward_cells = required_cells_calculation_vertical(board, pos, BACKWARD_MOD, NO_LIMIT_FOR_MOVES);
     
     if (backward_cells == POSITION_CALCULATION_ERROR) {
         return ESP_FAIL;
     }
 
-    right_cells = required_cells_calculation_horisontal(board, pos, RIGHT_MOD);
+    right_cells = required_cells_calculation_horisontal(board, pos, RIGHT_MOD, NO_LIMIT_FOR_MOVES);
     
     if (right_cells == POSITION_CALCULATION_ERROR) {
         return ESP_FAIL;
     }
 
-    left_cells = required_cells_calculation_horisontal(board, pos, LEFT_MOD);
+    left_cells = required_cells_calculation_horisontal(board, pos, LEFT_MOD, NO_LIMIT_FOR_MOVES);
 
     if (right_cells == POSITION_CALCULATION_ERROR) {
         return ESP_FAIL;
@@ -828,19 +895,19 @@ static esp_err_t bishop_led_calculation(figure_position_t pos) {
     uint8_t right_forward = 0;
     uint8_t right_backward = 0;
 
-    left_forward = required_cells_calculation_diagonal(board, pos, LEFT_MOD, FORWARD_MOD);
+    left_forward = required_cells_calculation_diagonal(board, pos, LEFT_MOD, FORWARD_MOD, NO_LIMIT_FOR_MOVES);
     if (left_forward == POSITION_CALCULATION_ERROR){
         return ESP_FAIL;
     }
-    left_backward = required_cells_calculation_diagonal(board, pos, LEFT_MOD, BACKWARD_MOD);
+    left_backward = required_cells_calculation_diagonal(board, pos, LEFT_MOD, BACKWARD_MOD, NO_LIMIT_FOR_MOVES);
     if (left_backward == POSITION_CALCULATION_ERROR){
         return ESP_FAIL;
     }
-    right_forward = required_cells_calculation_diagonal(board, pos, RIGHT_MOD, FORWARD_MOD);
+    right_forward = required_cells_calculation_diagonal(board, pos, RIGHT_MOD, FORWARD_MOD, NO_LIMIT_FOR_MOVES);
     if (right_forward == POSITION_CALCULATION_ERROR){
         return ESP_FAIL;
     }
-    right_backward = required_cells_calculation_diagonal(board, pos, RIGHT_MOD, BACKWARD_MOD);
+    right_backward = required_cells_calculation_diagonal(board, pos, RIGHT_MOD, BACKWARD_MOD, NO_LIMIT_FOR_MOVES);
     if (right_backward == POSITION_CALCULATION_ERROR){
         return ESP_FAIL;
     }
@@ -904,19 +971,19 @@ static esp_err_t queen_led_calculation(figure_position_t pos) {
 
     ESP_LOG(INFO, TAG, "Calculating diagonal moves for queen");
 
-    left_forward = required_cells_calculation_diagonal(board, pos, LEFT_MOD, FORWARD_MOD);
+    left_forward = required_cells_calculation_diagonal(board, pos, LEFT_MOD, FORWARD_MOD, NO_LIMIT_FOR_MOVES);
     if (left_forward == POSITION_CALCULATION_ERROR){
         return ESP_FAIL;
     }
-    left_backward = required_cells_calculation_diagonal(board, pos, LEFT_MOD, BACKWARD_MOD);
+    left_backward = required_cells_calculation_diagonal(board, pos, LEFT_MOD, BACKWARD_MOD, NO_LIMIT_FOR_MOVES);
     if (left_backward == POSITION_CALCULATION_ERROR){
         return ESP_FAIL;
     }
-    right_forward = required_cells_calculation_diagonal(board, pos, RIGHT_MOD, FORWARD_MOD);
+    right_forward = required_cells_calculation_diagonal(board, pos, RIGHT_MOD, FORWARD_MOD, NO_LIMIT_FOR_MOVES);
     if (right_forward == POSITION_CALCULATION_ERROR){
         return ESP_FAIL;
     }
-    right_backward = required_cells_calculation_diagonal(board, pos, RIGHT_MOD, BACKWARD_MOD);
+    right_backward = required_cells_calculation_diagonal(board, pos, RIGHT_MOD, BACKWARD_MOD, NO_LIMIT_FOR_MOVES);
     if (right_backward == POSITION_CALCULATION_ERROR){
         return ESP_FAIL;
     }
@@ -930,25 +997,25 @@ static esp_err_t queen_led_calculation(figure_position_t pos) {
 
     ESP_LOG(INFO, TAG, "Calculating horisontal and vertical moves for queen");
 
-    forward_cells = required_cells_calculation_vertical(board, pos, FORWARD_MOD);
+    forward_cells = required_cells_calculation_vertical(board, pos, FORWARD_MOD, NO_LIMIT_FOR_MOVES);
     
     if (forward_cells == POSITION_CALCULATION_ERROR) {
         return ESP_FAIL;
     }
 
-    backward_cells = required_cells_calculation_vertical(board, pos, BACKWARD_MOD);
+    backward_cells = required_cells_calculation_vertical(board, pos, BACKWARD_MOD, NO_LIMIT_FOR_MOVES);
     
     if (backward_cells == POSITION_CALCULATION_ERROR) {
         return ESP_FAIL;
     }
 
-    right_cells = required_cells_calculation_horisontal(board, pos, RIGHT_MOD);
+    right_cells = required_cells_calculation_horisontal(board, pos, RIGHT_MOD, NO_LIMIT_FOR_MOVES);
     
     if (right_cells == POSITION_CALCULATION_ERROR) {
         return ESP_FAIL;
     }
 
-    left_cells = required_cells_calculation_horisontal(board, pos, LEFT_MOD);
+    left_cells = required_cells_calculation_horisontal(board, pos, LEFT_MOD, NO_LIMIT_FOR_MOVES);
 
     if (right_cells == POSITION_CALCULATION_ERROR) {
         return ESP_FAIL;
@@ -1009,6 +1076,128 @@ static esp_err_t queen_led_calculation(figure_position_t pos) {
 
 }
 
+esp_err_t king_led_calculations(figure_position_t pos) {
+
+    chess_board_t board;
+
+    if(access_lock()){
+        board = local_data.board;
+        release_lock();
+    } else {
+        return ESP_FAIL;
+    }
+
+    uint8_t left_forward = 0;
+    uint8_t left_backward = 0;
+    uint8_t right_forward = 0;
+    uint8_t right_backward = 0;
+
+    ESP_LOG(INFO, TAG, "Calculating diagonal moves for king");
+
+    left_forward = required_cells_calculation_diagonal(board, pos, LEFT_MOD, FORWARD_MOD, 1);
+    if (left_forward == POSITION_CALCULATION_ERROR){
+        return ESP_FAIL;
+    }
+    left_backward = required_cells_calculation_diagonal(board, pos, LEFT_MOD, BACKWARD_MOD, 1);
+    if (left_backward == POSITION_CALCULATION_ERROR){
+        return ESP_FAIL;
+    }
+    right_forward = required_cells_calculation_diagonal(board, pos, RIGHT_MOD, FORWARD_MOD, 1);
+    if (right_forward == POSITION_CALCULATION_ERROR){
+        return ESP_FAIL;
+    }
+    right_backward = required_cells_calculation_diagonal(board, pos, RIGHT_MOD, BACKWARD_MOD, 1);
+    if (right_backward == POSITION_CALCULATION_ERROR){
+        return ESP_FAIL;
+    }
+
+    uint8_t total_diagonal = left_forward + left_backward + right_forward + right_backward;
+
+    uint8_t forward_cells = 0;
+    uint8_t backward_cells = 0;
+    uint8_t right_cells = 0;
+    uint8_t left_cells = 0;
+
+    ESP_LOG(INFO, TAG, "Calculating horisontal and vertical moves for king");
+
+    forward_cells = required_cells_calculation_vertical(board, pos, FORWARD_MOD, 1);
+    
+    if (forward_cells == POSITION_CALCULATION_ERROR) {
+        return ESP_FAIL;
+    }
+
+    backward_cells = required_cells_calculation_vertical(board, pos, BACKWARD_MOD, 1);
+    
+    if (backward_cells == POSITION_CALCULATION_ERROR) {
+        return ESP_FAIL;
+    }
+
+    right_cells = required_cells_calculation_horisontal(board, pos, RIGHT_MOD, 1);
+    
+    if (right_cells == POSITION_CALCULATION_ERROR) {
+        return ESP_FAIL;
+    }
+
+    left_cells = required_cells_calculation_horisontal(board, pos, LEFT_MOD, 1);
+
+    if (right_cells == POSITION_CALCULATION_ERROR) {
+        return ESP_FAIL;
+    }
+
+    uint8_t total_direct = forward_cells + backward_cells + right_cells + left_cells;
+
+    uint8_t total_combined = total_diagonal + total_direct;
+
+    if (total_combined == 0) {
+        ESP_LOG(WARN, TAG, "No possible moves for bishop or calculations are wrong");
+        return ESP_FAIL;
+    }
+
+    uint8_t *arr_ptr = NULL;
+
+    ESP_LOG(WARN, TAG, "MALLOC");
+    arr_ptr = calloc(total_combined, sizeof(uint8_t));
+
+    if (!arr_ptr){
+        ESP_LOG(ERROR, TAG, "Failed to malloc. Aborting");
+        arr_ptr = NULL;
+        return ESP_FAIL;
+    }
+
+    uint8_t counter = 0;
+
+    if (populate_led_array_diagonal(arr_ptr, left_forward, left_backward, right_forward, right_backward, pos, &counter) != ESP_OK){
+        ESP_LOG(ERROR, TAG, "Failed to populate diagonal array");
+        if (arr_ptr){
+            ESP_LOG(WARN, TAG, "FREE");
+            free(arr_ptr);
+        }
+        arr_ptr = NULL;
+        return ESP_FAIL;
+    }
+
+    if (populate_led_array_direct(arr_ptr, forward_cells, backward_cells, right_cells, left_cells, pos, &counter) != ESP_OK) {
+        ESP_LOG(ERROR, TAG, "Failed to populate direct array");
+        if (arr_ptr){
+            ESP_LOG(WARN, TAG, "FREE");
+            free(arr_ptr);
+        }
+        arr_ptr = NULL;
+        return ESP_FAIL;
+    }
+
+    local_data.board.board[pos.pos_y][pos.pos_x].led_op(arr_ptr, total_combined);
+
+    
+    if (arr_ptr){
+        ESP_LOG(WARN, TAG, "FREE");
+        free(arr_ptr);
+    }
+
+    return ESP_OK;
+}
+
+
 static esp_err_t required_leds_calculation(figure_position_t updated_pos){
     
     chess_figures_t current_figure;
@@ -1019,6 +1208,8 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos){
     } else {
         return ESP_FAIL;
     }
+
+    // TODO: add error handling
     switch (current_figure){
         case FIGURE_PAWN:
             if (pawn_led_calculation(updated_pos) != ESP_OK){
@@ -1042,6 +1233,11 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos){
             break;
         case FIGURE_QUEEN:
             if (queen_led_calculation(updated_pos) != ESP_OK){
+
+            }
+            break;
+        case FIGURE_KING:
+            if (king_led_calculations(updated_pos) != ESP_OK){
 
             }
             break;
