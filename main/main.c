@@ -63,10 +63,12 @@ esp_err_t init_services(){
 
     ESP_LOG(WARN, TAG, "Initialising services...");
 
-     if (led_service_init() != ESP_OK){
+#ifdef CONFIG_LED_STRIP_USED
+    if (led_service_init() != ESP_OK){
         ESP_LOG(ERROR, TAG, "Failed to init led service. Aborting.");
         return ESP_FAIL;
     }
+#endif
 
     if (device_init() != ESP_OK){
         ESP_LOG(ERROR, TAG, "Failed to init device service. Aborting.");
@@ -76,11 +78,12 @@ esp_err_t init_services(){
         ESP_LOG(ERROR, TAG, "Failed to init chess engine service. Aborting.");
         return ESP_FAIL;
     }
-
+#ifdef CONFIG_DISPLAY_USED
     if (display_service_init() != ESP_OK) {
         ESP_LOG(ERROR, TAG, "Failed to init display service. Aborting.");
         return ESP_FAIL;
     }
+#endif
 
     return ESP_OK;
 }
@@ -189,6 +192,12 @@ void app_main(void)
     if (esp_event_post_to(local_data.handle, TEST_EVENTS, EVENT_MATRIX_SWITCH_CLOSED, NULL, 0, portMAX_DELAY) != ESP_OK) {
         ESP_LOG(ERROR, TAG, "Failed to post event");
     }
+#endif
+
+#ifdef CONFIG_DISPLAY_USED
+    ESP_LOG(WARN, TAG, "Is display used: %d:%s", CONFIG_DISPLAY_USED, CONFIG_DISPLAY_USED ? "true" : "false");
+#else
+    ESP_LOG(WARN, TAG, "Display is set to be not used");
 #endif
     while(1) {
 
