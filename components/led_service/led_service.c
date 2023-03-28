@@ -105,7 +105,7 @@ esp_err_t led_service_init(){
         .rgb_led_type = RGB_LED_TYPE_WS2812,
         .rmt_channel = RMT_CHANNEL_1,
         .rmt_interrupt_num = LED_STRIP_RMT_INTR_NUM,
-        .gpio = GPIO_NUM_21, // TODO: this works for now, but might need to be moved to another pin.
+        .gpio = GPIO_NUM_19, // TODO: this works for now, but might need to be moved to another pin.
         .led_strip_buf_1 = local_data.led_strip_buf_1,
         .led_strip_buf_2 = local_data.led_strip_buf_2,
         .led_strip_length = LED_STRIP_LENGTH
