@@ -324,6 +324,13 @@ CONFIG_PARTITION_TABLE_MD5=y
 # end of Partition Table
 
 #
+# User Config Settings
+#
+# CONFIG_DISPLAY_USED is not set
+# CONFIG_LED_STRIP_USED is not set
+# end of User Config Settings
+
+#
 # SSD1306 Configuration
 #
 CONFIG_GPIO_RANGE_MAX=33
