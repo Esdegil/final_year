@@ -14,6 +14,7 @@
 #include "device.h"
 #include "led_service.h"
 #include "chess_engine.h"
+#include "display_service.h"
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -63,18 +64,24 @@ esp_err_t init_services(){
     ESP_LOG(WARN, TAG, "Initialising services...");
 
      if (led_service_init() != ESP_OK){
-        ESP_LOG(ERROR, TAG, "Failed to init one of the services. Aborting.");
+        ESP_LOG(ERROR, TAG, "Failed to init led service. Aborting.");
         return ESP_FAIL;
     }
 
     if (device_init() != ESP_OK){
-        ESP_LOG(ERROR, TAG, "Failed to init one of the services. Aborting.");
+        ESP_LOG(ERROR, TAG, "Failed to init device service. Aborting.");
         return ESP_FAIL;
     }
     if (chess_engine_init() != ESP_OK){
-        ESP_LOG(ERROR, TAG, "Failed to init one of the services. Aborting.");
+        ESP_LOG(ERROR, TAG, "Failed to init chess engine service. Aborting.");
         return ESP_FAIL;
     }
+
+    if (display_service_init() != ESP_OK) {
+        ESP_LOG(ERROR, TAG, "Failed to init display service. Aborting.");
+        return ESP_FAIL;
+    }
+
     return ESP_OK;
 }
 
