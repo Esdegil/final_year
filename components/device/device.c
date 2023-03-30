@@ -195,6 +195,7 @@ static void device_task(){
                 device_set_pin_level(out_pins[j], 0);
             }
             device_set_pin_level(out_pins[i], 1);
+            vTaskDelay(50/portTICK_PERIOD_MS);
             for (int j = 0; j < MATRIX_Y; j++){
                 device_get_pin_level(in_pins[j], &level); 
                 // TODO: double check about this reversed order
@@ -234,12 +235,12 @@ static void device_task(){
                         ESP_LOG(ERROR, TAG, "Failed to update chess engine from device service");
                     }
                 }
-                ESP_LOG(WARN, TAG, "Pin %d  pos %d level %d", in_pins[i], j, level);
+                //ESP_LOG(WARN, TAG, "Pin %d  pos %d level %d", in_pins[i], j, level);
                 
             }
         }
         
-    vTaskDelay(5000/portTICK_PERIOD_MS);
+    vTaskDelay(1000/portTICK_PERIOD_MS);
     }
     
 
