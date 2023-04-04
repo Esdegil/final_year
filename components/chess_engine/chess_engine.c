@@ -17,6 +17,9 @@
 
 #define NO_LIMIT_FOR_MOVES 0
 
+#define CALCULATIONS_WITHOUT_LEDS false
+#define CALCULATIONS_WITH_LEDS true
+
 typedef struct local_data{
 
     bool initialised;
@@ -33,6 +36,11 @@ typedef struct local_data{
 
     state_change_data_t last_change_data;
 
+    attackable_figures_t *current_attackable;
+    uint8_t counter_attackable;
+
+    bool check;
+
 } local_data_t;
 
 static local_data_t local_data;
@@ -40,6 +48,8 @@ static local_data_t local_data;
 static void chess_engine_task(void *args);
 static bool access_lock();
 static bool release_lock();
+
+static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool show_leds, bool check_calculations);
 
 esp_err_t chess_engine_init(){
 
@@ -72,6 +82,7 @@ esp_err_t chess_engine_init(){
     local_data.queue = xQueueCreate(3, sizeof(state_change_data_t));// TODO: add checks and removes here
 
     ESP_LOG(ERROR, TAG, "FULL BOARD? %d", FULL_BOARD);
+    local_data.check = false;
 
     // Init on impossible positions to allow 0:0 to be moved at first turn
     local_data.last_change_data.pos.pos_y = MATRIX_Y+1;
@@ -86,7 +97,7 @@ esp_err_t chess_engine_init(){
     // White figures init
         local_data.board.board[0][0].figure_type = FIGURE_END_LIST;
         local_data.board.board[0][1].figure_type = FIGURE_END_LIST;
-        local_data.board.board[0][2].figure_type = FIGURE_KING;
+        local_data.board.board[0][2].figure_type = FIGURE_ROOK;
 
         local_data.board.board[0][0].white = true;
         local_data.board.board[0][1].white = true;
@@ -109,7 +120,7 @@ esp_err_t chess_engine_init(){
         
 
     // Black figures init
-        local_data.board.board[2][0].figure_type = FIGURE_PAWN;
+        local_data.board.board[2][0].figure_type = FIGURE_KING;
         local_data.board.board[2][1].figure_type = FIGURE_PAWN;
         local_data.board.board[2][2].figure_type = FIGURE_END_LIST;
 
@@ -133,7 +144,7 @@ esp_err_t chess_engine_init(){
     // Rest of the board
 
         local_data.board.board[1][0].figure_type = FIGURE_END_LIST;
-        local_data.board.board[1][1].figure_type = FIGURE_QUEEN;
+        local_data.board.board[1][1].figure_type = FIGURE_END_LIST;
         local_data.board.board[1][2].figure_type = FIGURE_END_LIST;
 
 
@@ -305,7 +316,7 @@ static esp_err_t pawn_led_calculation(figure_position_t pos) {
     return ESP_OK;
 }
 
-static uint8_t required_cells_calculation_vertical(chess_board_t board, figure_position_t pos, int8_t mod_y, uint8_t limit){
+static uint8_t required_cells_calculation_vertical(chess_board_t board, figure_position_t pos, int8_t mod_y, uint8_t limit, bool *attack_possible, attackable_figures_t *figure){
     ESP_LOG(DEBUG, TAG, "Mods passed y:%d", mod_y)
 
     if (mod_y != FORWARD_MOD && mod_y != BACKWARD_MOD){
@@ -350,10 +361,16 @@ static uint8_t required_cells_calculation_vertical(chess_board_t board, figure_p
             required_cells--;
         } else if (adj_modified_y < MATRIX_Y){
             ESP_LOG(WARN, TAG, "Not out of bounds vertical");
-            if (board.board[pos.pos_y + ((required_cells + 1) * mod_y)][pos.pos_x].figure_type != FIGURE_END_LIST) { 
+            if (board.board[pos.pos_y + ((required_cells + 1) * mod_y)][pos.pos_x].figure_type != FIGURE_END_LIST && updated_limit != 1) { 
                 if (board.board[pos.pos_y + ((required_cells + 1) * mod_y)][pos.pos_x].white != board.board[pos.pos_y][pos.pos_x].white) {
                     ESP_LOG(INFO, TAG, "//////////////////// Enemy figure on %d:%d", pos.pos_y + ((required_cells + 1) * mod_y), pos.pos_x );
-                required_cells++;
+                    required_cells++;
+                    *attack_possible = true;
+                    figure->pos.pos_y = pos.pos_y + (required_cells * mod_y);
+                    figure->pos.pos_x = pos.pos_x;
+                    figure->figure = board.board[figure->pos.pos_y][figure->pos.pos_x].figure_type;
+                    
+                    
                 }
             }
         }
@@ -374,6 +391,11 @@ static uint8_t required_cells_calculation_vertical(chess_board_t board, figure_p
             if(board.board[pos.pos_y + adj_modified_y][pos.pos_x].white != board.board[pos.pos_y][pos.pos_x].white){
                 ESP_LOG(WARN, TAG, "Enemy figure adjacent");
                 required_cells++;
+
+                *attack_possible = true;
+                figure->pos.pos_y = adj_modified_y; // TODO: REALLY CHECK THIS
+                figure->pos.pos_x = pos.pos_x;
+                figure->figure = board.board[figure->pos.pos_y][figure->pos.pos_x].figure_type;
             }
 
         }
@@ -385,7 +407,7 @@ static uint8_t required_cells_calculation_vertical(chess_board_t board, figure_p
 
 }
 
-static uint8_t required_cells_calculation_horisontal(chess_board_t board, figure_position_t pos, int8_t mod_x, uint8_t limit) {
+static uint8_t required_cells_calculation_horisontal(chess_board_t board, figure_position_t pos, int8_t mod_x, uint8_t limit, bool *attack_possible, attackable_figures_t *figure) {
 
     ESP_LOG(DEBUG, TAG, "Mods passed x:%d", mod_x)
 
@@ -429,12 +451,16 @@ static uint8_t required_cells_calculation_horisontal(chess_board_t board, figure
             required_cells--;
         } else if (adj_modified_x < MATRIX_X) { 
             ESP_LOG(WARN, TAG, "Not out of bounds horisontal");
-            if (board.board[pos.pos_y][pos.pos_x + ((required_cells + 1) * mod_x)].figure_type != FIGURE_END_LIST) { 
+            if (board.board[pos.pos_y][pos.pos_x + ((required_cells + 1) * mod_x)].figure_type != FIGURE_END_LIST && updated_limit != 1) { 
                 if (board.board[pos.pos_y][pos.pos_x + ((required_cells + 1) * mod_x)].white != board.board[pos.pos_y][pos.pos_x].white) {
-                    ESP_LOG(INFO, TAG, "//////////////////// Enemy figure on %d:%d", pos.pos_x, pos.pos_x + ((required_cells + 1) * mod_x ));
+                    ESP_LOG(INFO, TAG, "//////////////////// Enemy figure on %d:%d", pos.pos_y, pos.pos_x + ((required_cells + 1) * mod_x ));
                     required_cells++;
-        }
-        }
+                    *attack_possible = true;
+                    figure->pos.pos_y = pos.pos_y;
+                    figure->pos.pos_x = pos.pos_x + ((required_cells) * mod_x );
+                    figure->figure = board.board[figure->pos.pos_y][figure->pos.pos_x].figure_type;
+                }
+            }
         }
     } else if (!loop_broken && required_cells == 0) {
 
@@ -453,6 +479,10 @@ static uint8_t required_cells_calculation_horisontal(chess_board_t board, figure
             if(board.board[pos.pos_y][pos.pos_x + adj_modified_x].white != board.board[pos.pos_y][pos.pos_x].white){
                 ESP_LOG(WARN, TAG, "Enemy figure adjacent");
                 required_cells++;
+                *attack_possible = true;
+                figure->pos.pos_y = pos.pos_y;
+                figure->pos.pos_x = pos.pos_x + adj_modified_x;
+                figure->figure = board.board[figure->pos.pos_y][figure->pos.pos_x].figure_type;
             }
 
         }
@@ -464,7 +494,7 @@ static uint8_t required_cells_calculation_horisontal(chess_board_t board, figure
 
 }
 
-static esp_err_t required_cells_calculation_diagonal(chess_board_t board, figure_position_t pos, int mod_x, int mod_y, uint8_t limit) {
+static esp_err_t required_cells_calculation_diagonal(chess_board_t board, figure_position_t pos, int mod_x, int mod_y, uint8_t limit,  bool *attack_possible, attackable_figures_t *figure) {
     
     ESP_LOG(DEBUG, TAG, "Mods passed y:%d x:%d", mod_y, mod_x)
 
@@ -518,10 +548,14 @@ static esp_err_t required_cells_calculation_diagonal(chess_board_t board, figure
             required_cells--;
         } else if (adj_modified_y < MATRIX_Y && adj_modified_x < MATRIX_X){
             ESP_LOG(WARN, TAG, "Not out of bounds diagonal");
-            if (board.board[pos.pos_y + ((required_cells + 1) * mod_y)][pos.pos_x + ((required_cells + 1) * mod_x)].figure_type != FIGURE_END_LIST){
+            if (board.board[pos.pos_y + ((required_cells + 1) * mod_y)][pos.pos_x + ((required_cells + 1) * mod_x)].figure_type != FIGURE_END_LIST && updated_limit != 1){
                 if (board.board[pos.pos_y + ((required_cells + 1) * mod_y)][pos.pos_x + ((required_cells + 1) * mod_x)].white != board.board[pos.pos_y][pos.pos_x].white) {
                     ESP_LOG(INFO, TAG, "//////////////////// Enemy figure on %d:%d", pos.pos_y + ((required_cells + 1) * mod_y), pos.pos_x + ((required_cells + 1) * mod_x ));
-                     required_cells++;
+                    required_cells++;
+                    *attack_possible = true;
+                    figure->pos.pos_y = pos.pos_y + (required_cells * mod_y);
+                    figure->pos.pos_x = pos.pos_x + (required_cells * mod_x);
+                    figure->figure = board.board[figure->pos.pos_y][figure->pos.pos_x].figure_type;
                 }
             }
         } 
@@ -538,11 +572,13 @@ static esp_err_t required_cells_calculation_diagonal(chess_board_t board, figure
 
             ESP_LOG(DEBUG, TAG, "mods y:%d x:%d positions after mods applied %d:%d",mod_y, mod_x,pos.pos_y + (1*mod_y), pos.pos_x + (1*mod_x));
 
-            
-
             if(board.board[pos.pos_y + (1 * mod_y)][pos.pos_x + (1 * mod_x)].white != board.board[pos.pos_y][pos.pos_x].white){
                 ESP_LOG(WARN, TAG, "Enemy figure adjacent");
                 required_cells++;
+                *attack_possible = true;
+                figure->pos.pos_y = pos.pos_y + mod_y;
+                figure->pos.pos_x = pos.pos_x + mod_x;
+                figure->figure = board.board[figure->pos.pos_y][figure->pos.pos_x].figure_type;
             }
 
         }
@@ -648,8 +684,12 @@ static esp_err_t populate_led_array_diagonal(uint8_t* array, uint8_t lf, uint8_t
 }
 
 
-static esp_err_t rook_led_calculation(figure_position_t pos){
+static esp_err_t rook_led_calculation(figure_position_t pos, uint8_t **led_array_ptr, uint8_t *counter){
     
+    if (*counter != 0) {
+        ESP_LOG(ERROR, TAG, "Counter is %d at the start. Aborting", *counter);
+    }
+
     chess_board_t board;
 
     if(access_lock()){
@@ -666,29 +706,98 @@ static esp_err_t rook_led_calculation(figure_position_t pos){
     uint8_t right_cells = 0;
     uint8_t left_cells = 0;
 
+    bool attack_possible = false;
+    attackable_figures_t *figures_ptr = (attackable_figures_t*)calloc(4, sizeof(attackable_figures_t));
+    ESP_LOG(WARN, TAG,"MALLOC");
+    if (!figures_ptr) {
+        ESP_LOG(ERROR, TAG, "Failed to allocate memory. Rook.");
+        // TODO: return?
+    }
     
-    forward_cells = required_cells_calculation_vertical(board, pos, FORWARD_MOD, NO_LIMIT_FOR_MOVES);
+
+    forward_cells = required_cells_calculation_vertical(board, pos, FORWARD_MOD, NO_LIMIT_FOR_MOVES, &attack_possible, &figures_ptr[*counter]);
     
     if (forward_cells == POSITION_CALCULATION_ERROR) {
+        if (figures_ptr){
+            ESP_LOG(WARN, TAG, "FREE");
+            free(figures_ptr);
+        }
         return ESP_FAIL;
     }
 
-    backward_cells = required_cells_calculation_vertical(board, pos, BACKWARD_MOD, NO_LIMIT_FOR_MOVES);
+    if (attack_possible){
+        (*counter)++;
+        attack_possible = false;
+    }
+    
+
+    backward_cells = required_cells_calculation_vertical(board, pos, BACKWARD_MOD, NO_LIMIT_FOR_MOVES, &attack_possible, &figures_ptr[*counter]);
     
     if (backward_cells == POSITION_CALCULATION_ERROR) {
+        if (figures_ptr){
+            ESP_LOG(WARN, TAG, "FREE");
+            free(figures_ptr);
+        }
         return ESP_FAIL;
     }
 
-    right_cells = required_cells_calculation_horisontal(board, pos, RIGHT_MOD, NO_LIMIT_FOR_MOVES);
+    if (attack_possible){
+        (*counter)++;
+        attack_possible = false;
+    }
+    
+
+    right_cells = required_cells_calculation_horisontal(board, pos, RIGHT_MOD, NO_LIMIT_FOR_MOVES, &attack_possible, &figures_ptr[*counter]);
     
     if (right_cells == POSITION_CALCULATION_ERROR) {
+        if (figures_ptr){
+            ESP_LOG(WARN, TAG, "FREE");
+            free(figures_ptr);
+        }
         return ESP_FAIL;
     }
 
-    left_cells = required_cells_calculation_horisontal(board, pos, LEFT_MOD, NO_LIMIT_FOR_MOVES);
+    if (attack_possible){
+        (*counter)++;
+        attack_possible = false;
+    }
+    
+    left_cells = required_cells_calculation_horisontal(board, pos, LEFT_MOD, NO_LIMIT_FOR_MOVES, &attack_possible, &figures_ptr[*counter]);
 
     if (right_cells == POSITION_CALCULATION_ERROR) {
+        if (figures_ptr){
+            ESP_LOG(WARN, TAG, "FREE");
+            free(figures_ptr);
+        }
         return ESP_FAIL;
+    }
+
+    if (attack_possible){
+        (*counter)++;
+        attack_possible = false;
+    }
+    if (counter != 0) {
+        if (access_lock()){
+
+            if (local_data.current_attackable){
+                ESP_LOG(WARN, TAG, "FREE local_data.current_attackable");
+                free(local_data.current_attackable);
+                local_data.current_attackable = NULL;
+                
+            }
+
+            local_data.counter_attackable = *counter;
+            local_data.current_attackable = figures_ptr;
+
+            release_lock();
+        } else {
+            ESP_LOG(ERROR, TAG, "Failed to access lock when saving attackable figures.");
+            if (figures_ptr) {
+                ESP_LOG(WARN, TAG, "FREE figures_ptr");
+                free(figures_ptr);
+                figures_ptr = NULL;
+            }
+        }
     }
 
     uint8_t total_cells = forward_cells+backward_cells+right_cells+left_cells;
@@ -697,27 +806,25 @@ static esp_err_t rook_led_calculation(figure_position_t pos){
 
     ESP_LOG(WARN, TAG, "MALLOC");
     
-    uint8_t *arr_ptr = {0};
+    *led_array_ptr = NULL;
 
-    arr_ptr = calloc(total_cells, sizeof(uint8_t));
+    *led_array_ptr = (uint8_t*)calloc(total_cells, sizeof(uint8_t));
 
-    if (!arr_ptr){
+    if (!led_array_ptr){
         ESP_LOG(ERROR, TAG, "Failed to malloc. Aborting");
-        arr_ptr = NULL;
+        led_array_ptr = NULL;
         return ESP_FAIL;
     }
 
-    uint8_t counter = 0;
+    *counter = 0;
 
-    populate_led_array_direct(arr_ptr, forward_cells, backward_cells, right_cells, left_cells, pos, &counter);
+    populate_led_array_direct(*led_array_ptr, forward_cells, backward_cells, right_cells, left_cells, pos, counter);
 
-    local_data.board.board[pos.pos_y][pos.pos_x].led_op(arr_ptr, total_cells);
+    ESP_LOG(WARN, TAG, "Array 0 after populating %d", *led_array_ptr[0]);
 
-    
-    if (arr_ptr){
-        ESP_LOG(WARN, TAG, "FREE");
-        free(arr_ptr);
-    }
+    *counter = total_cells;
+
+   
     return ESP_OK;
 }
 
@@ -879,7 +986,7 @@ static esp_err_t knight_led_calculation(figure_position_t pos) {
     return ESP_OK;
 }
 
-static esp_err_t bishop_led_calculation(figure_position_t pos) {
+static esp_err_t bishop_led_calculation(figure_position_t pos, uint8_t **led_array_ptr, uint8_t *counter) {
 
     chess_board_t board;
 
@@ -895,21 +1002,95 @@ static esp_err_t bishop_led_calculation(figure_position_t pos) {
     uint8_t right_forward = 0;
     uint8_t right_backward = 0;
 
-    left_forward = required_cells_calculation_diagonal(board, pos, LEFT_MOD, FORWARD_MOD, NO_LIMIT_FOR_MOVES);
-    if (left_forward == POSITION_CALCULATION_ERROR){
+     bool attack_possible = false;
+    attackable_figures_t *figures_ptr = calloc(4, sizeof(attackable_figures_t));
+    ESP_LOG(WARN, TAG,"MALLOC");
+    if (!figures_ptr) {
+        ESP_LOG(ERROR, TAG, "Failed to allocate memory. Bishop.");
+        // TODO: return?
+    }
+
+    ESP_LOG(INFO, TAG, "Calculating diagonal moves for Bishop");
+
+    left_forward = required_cells_calculation_diagonal(board, pos, LEFT_MOD, FORWARD_MOD, 1, &attack_possible, &figures_ptr[*counter]);
+    
+    if (left_forward == POSITION_CALCULATION_ERROR) {
+        if (figures_ptr){
+            ESP_LOG(WARN, TAG, "FREE");
+            free(figures_ptr);
+        }
         return ESP_FAIL;
     }
-    left_backward = required_cells_calculation_diagonal(board, pos, LEFT_MOD, BACKWARD_MOD, NO_LIMIT_FOR_MOVES);
-    if (left_backward == POSITION_CALCULATION_ERROR){
+
+    if (attack_possible){
+        (*counter)++;
+        attack_possible = false;
+    }
+
+    left_backward = required_cells_calculation_diagonal(board, pos, LEFT_MOD, BACKWARD_MOD, 1, &attack_possible, &figures_ptr[*counter]);
+    if (left_backward == POSITION_CALCULATION_ERROR) {
+        if (figures_ptr){
+            ESP_LOG(WARN, TAG, "FREE");
+            free(figures_ptr);
+        }
         return ESP_FAIL;
     }
-    right_forward = required_cells_calculation_diagonal(board, pos, RIGHT_MOD, FORWARD_MOD, NO_LIMIT_FOR_MOVES);
-    if (right_forward == POSITION_CALCULATION_ERROR){
+
+    if (attack_possible){
+        (*counter)++;
+        attack_possible = false;
+    }
+    
+    right_forward = required_cells_calculation_diagonal(board, pos, RIGHT_MOD, FORWARD_MOD, 1, &attack_possible, &figures_ptr[*counter]);
+    if (right_forward == POSITION_CALCULATION_ERROR) {
+        if (figures_ptr){
+            ESP_LOG(WARN, TAG, "FREE");
+            free(figures_ptr);
+        }
         return ESP_FAIL;
     }
-    right_backward = required_cells_calculation_diagonal(board, pos, RIGHT_MOD, BACKWARD_MOD, NO_LIMIT_FOR_MOVES);
-    if (right_backward == POSITION_CALCULATION_ERROR){
+
+    if (attack_possible){
+        (*counter)++;
+        attack_possible = false;
+    }
+
+    right_backward = required_cells_calculation_diagonal(board, pos, RIGHT_MOD, BACKWARD_MOD, 1, &attack_possible, &figures_ptr[*counter]);
+    if (right_backward == POSITION_CALCULATION_ERROR) {
+        if (figures_ptr){
+            ESP_LOG(WARN, TAG, "FREE");
+            free(figures_ptr);
+        }
         return ESP_FAIL;
+    }
+
+    if (attack_possible){
+        (*counter)++;
+        attack_possible = false;
+    }
+
+    if (counter != 0) {
+        if (access_lock()){
+
+            if (local_data.current_attackable){
+                ESP_LOG(WARN, TAG, "FREE local_data.current_attackable");
+                free(local_data.current_attackable);
+                local_data.current_attackable = NULL;
+                
+            }
+
+            local_data.counter_attackable = *counter;
+            local_data.current_attackable = figures_ptr;
+
+            release_lock();
+        } else {
+            ESP_LOG(ERROR, TAG, "Failed to access lock when saving attackable figures.");
+            if (figures_ptr) {
+                ESP_LOG(WARN, TAG, "FREE figures_ptr");
+                free(figures_ptr);
+                figures_ptr = NULL;
+            }
+        }
     }
 
     uint8_t total = left_forward + left_backward + right_forward + right_backward;
@@ -919,41 +1100,32 @@ static esp_err_t bishop_led_calculation(figure_position_t pos) {
         return ESP_FAIL;
     }
 
-    uint8_t *arr_ptr = NULL;
+    *led_array_ptr = NULL;
 
-    ESP_LOG(WARN, TAG, "MALLOC");
-    arr_ptr = calloc(total, sizeof(uint8_t));
+    *led_array_ptr = (uint8_t*)calloc(total, sizeof(uint8_t));
 
-    if (!arr_ptr){
+    if (!led_array_ptr){
         ESP_LOG(ERROR, TAG, "Failed to malloc. Aborting");
-        arr_ptr = NULL;
+        led_array_ptr = NULL;
+       
         return ESP_FAIL;
     }
 
-    uint8_t counter = 0;
+    *counter = 0;
 
-    if (populate_led_array_diagonal(arr_ptr, left_forward, left_backward, right_forward, right_backward, pos, &counter) != ESP_OK){
-        ESP_LOG(ERROR, TAG, "Failed to populate diagonal array");
-        if (arr_ptr){
-            ESP_LOG(WARN, TAG, "FREE");
-            free(arr_ptr);
-        }
-        arr_ptr = NULL;
+    if (populate_led_array_diagonal(*led_array_ptr, left_forward, left_backward, right_forward, right_backward, pos, counter) != ESP_OK){
+        ESP_LOG(ERROR, TAG, "Failed to populate diagonal array. Bishop");
+        
         return ESP_FAIL;
     }
 
-    local_data.board.board[pos.pos_y][pos.pos_x].led_op(arr_ptr, total);
+    //local_data.board.board[pos.pos_y][pos.pos_x].led_op(arr_ptr, total);
 
     
-    if (arr_ptr){
-        ESP_LOG(WARN, TAG, "FREE");
-        free(arr_ptr);
-    }
-
     return ESP_OK;
 }
 
-static esp_err_t queen_led_calculation(figure_position_t pos) {
+static esp_err_t queen_led_calculation(figure_position_t pos, uint8_t **led_array_ptr, uint8_t *counter) {
 
     chess_board_t board;
 
@@ -969,23 +1141,73 @@ static esp_err_t queen_led_calculation(figure_position_t pos) {
     uint8_t right_forward = 0;
     uint8_t right_backward = 0;
 
+    bool attack_possible = false;
+    attackable_figures_t *figures_ptr = calloc(8, sizeof(attackable_figures_t));
+    ESP_LOG(WARN, TAG,"MALLOC");
+    if (!figures_ptr) {
+        ESP_LOG(ERROR, TAG, "Failed to allocate memory. Queen.");
+        // TODO: return?
+    }
+    
+    (*counter)++;
+
     ESP_LOG(INFO, TAG, "Calculating diagonal moves for queen");
 
-    left_forward = required_cells_calculation_diagonal(board, pos, LEFT_MOD, FORWARD_MOD, NO_LIMIT_FOR_MOVES);
-    if (left_forward == POSITION_CALCULATION_ERROR){
+    left_forward = required_cells_calculation_diagonal(board, pos, LEFT_MOD, FORWARD_MOD, NO_LIMIT_FOR_MOVES, &attack_possible, &figures_ptr[*counter]);
+    
+    if (left_forward == POSITION_CALCULATION_ERROR) {
+        if (figures_ptr){
+            ESP_LOG(WARN, TAG, "FREE");
+            free(figures_ptr);
+        }
         return ESP_FAIL;
     }
-    left_backward = required_cells_calculation_diagonal(board, pos, LEFT_MOD, BACKWARD_MOD, NO_LIMIT_FOR_MOVES);
-    if (left_backward == POSITION_CALCULATION_ERROR){
+
+    if (attack_possible){
+        (*counter)++;
+        attack_possible = false;
+    }
+
+    left_backward = required_cells_calculation_diagonal(board, pos, LEFT_MOD, BACKWARD_MOD, NO_LIMIT_FOR_MOVES, &attack_possible, &figures_ptr[*counter]);
+    if (left_backward == POSITION_CALCULATION_ERROR) {
+        if (figures_ptr){
+            ESP_LOG(WARN, TAG, "FREE");
+            free(figures_ptr);
+        }
         return ESP_FAIL;
     }
-    right_forward = required_cells_calculation_diagonal(board, pos, RIGHT_MOD, FORWARD_MOD, NO_LIMIT_FOR_MOVES);
-    if (right_forward == POSITION_CALCULATION_ERROR){
+
+    if (attack_possible){
+        (*counter)++;
+        attack_possible = false;
+    }
+    
+    right_forward = required_cells_calculation_diagonal(board, pos, RIGHT_MOD, FORWARD_MOD, NO_LIMIT_FOR_MOVES, &attack_possible, &figures_ptr[*counter]);
+    if (right_forward == POSITION_CALCULATION_ERROR) {
+        if (figures_ptr){
+            ESP_LOG(WARN, TAG, "FREE");
+            free(figures_ptr);
+        }
         return ESP_FAIL;
     }
-    right_backward = required_cells_calculation_diagonal(board, pos, RIGHT_MOD, BACKWARD_MOD, NO_LIMIT_FOR_MOVES);
-    if (right_backward == POSITION_CALCULATION_ERROR){
+
+    if (attack_possible){
+        (*counter)++;
+        attack_possible = false;
+    }
+
+    right_backward = required_cells_calculation_diagonal(board, pos, RIGHT_MOD, BACKWARD_MOD, NO_LIMIT_FOR_MOVES, &attack_possible, &figures_ptr[*counter]);
+    if (right_backward == POSITION_CALCULATION_ERROR) {
+        if (figures_ptr){
+            ESP_LOG(WARN, TAG, "FREE");
+            free(figures_ptr);
+        }
         return ESP_FAIL;
+    }
+
+    if (attack_possible){
+        (*counter)++;
+        attack_possible = false;
     }
 
     uint8_t total_diagonal = left_forward + left_backward + right_forward + right_backward;
@@ -997,28 +1219,91 @@ static esp_err_t queen_led_calculation(figure_position_t pos) {
 
     ESP_LOG(INFO, TAG, "Calculating horisontal and vertical moves for queen");
 
-    forward_cells = required_cells_calculation_vertical(board, pos, FORWARD_MOD, NO_LIMIT_FOR_MOVES);
+   
+
+    forward_cells = required_cells_calculation_vertical(board, pos, FORWARD_MOD, NO_LIMIT_FOR_MOVES, &attack_possible, &figures_ptr[*counter]);
     
     if (forward_cells == POSITION_CALCULATION_ERROR) {
+        if (figures_ptr){
+            ESP_LOG(WARN, TAG, "FREE");
+            free(figures_ptr);
+        }
         return ESP_FAIL;
     }
 
-    backward_cells = required_cells_calculation_vertical(board, pos, BACKWARD_MOD, NO_LIMIT_FOR_MOVES);
+    if (attack_possible){
+        (*counter)++;
+        attack_possible = false;
+    }
+
+    backward_cells = required_cells_calculation_vertical(board, pos, BACKWARD_MOD, NO_LIMIT_FOR_MOVES, &attack_possible, &figures_ptr[*counter]);
     
     if (backward_cells == POSITION_CALCULATION_ERROR) {
+        if (figures_ptr){
+            ESP_LOG(WARN, TAG, "FREE");
+            free(figures_ptr);
+        }
         return ESP_FAIL;
     }
 
-    right_cells = required_cells_calculation_horisontal(board, pos, RIGHT_MOD, NO_LIMIT_FOR_MOVES);
+    if (attack_possible){
+        (*counter)++;
+        attack_possible = false;
+    }
+
+
+    right_cells = required_cells_calculation_horisontal(board, pos, RIGHT_MOD, NO_LIMIT_FOR_MOVES, &attack_possible, &figures_ptr[*counter]);
     
-    if (right_cells == POSITION_CALCULATION_ERROR) {
+     if (right_cells == POSITION_CALCULATION_ERROR) {
+        if (figures_ptr){
+            ESP_LOG(WARN, TAG, "FREE");
+            free(figures_ptr);
+        }
         return ESP_FAIL;
     }
 
-    left_cells = required_cells_calculation_horisontal(board, pos, LEFT_MOD, NO_LIMIT_FOR_MOVES);
+    if (attack_possible){
+        (*counter)++;
+        attack_possible = false;
+    }
 
-    if (right_cells == POSITION_CALCULATION_ERROR) {
+    left_cells = required_cells_calculation_horisontal(board, pos, LEFT_MOD, NO_LIMIT_FOR_MOVES, &attack_possible, &figures_ptr[*counter]);
+
+    if (left_cells == POSITION_CALCULATION_ERROR) {
+        if (figures_ptr){
+            ESP_LOG(WARN, TAG, "FREE");
+            free(figures_ptr);
+        }
         return ESP_FAIL;
+    }
+
+    if (attack_possible){
+        (*counter)++;
+        attack_possible = false;
+    }
+
+    if (counter != 0) {
+        if (access_lock()){
+
+            if (local_data.current_attackable){
+                ESP_LOG(WARN, TAG, "FREE local_data.current_attackable");
+                free(local_data.current_attackable);
+                local_data.current_attackable = NULL;
+                
+            }
+
+            local_data.counter_attackable = *counter;
+            local_data.current_attackable = figures_ptr;
+
+            release_lock();
+        } else {
+            ESP_LOG(ERROR, TAG, "Failed to access lock when saving attackable figures.");
+            if (figures_ptr) {
+                ESP_LOG(WARN, TAG, "FREE figures_ptr");
+                free(figures_ptr);
+                figures_ptr = NULL;
+            }
+        }
     }
 
     uint8_t total_direct = forward_cells + backward_cells + right_cells + left_cells;
@@ -1026,62 +1311,133 @@ static esp_err_t queen_led_calculation(figure_position_t pos) {
     uint8_t total_combined = total_diagonal + total_direct;
 
     if (total_combined == 0) {
-        ESP_LOG(WARN, TAG, "No possible moves for bishop or calculations are wrong");
-        return ESP_FAIL;
+        ESP_LOG(WARN, TAG, "No possible moves for queen or calculations are wrong");
+        return ESP_FAIL; // TODO: probably not needed. Same thing in bishop
     }
 
-    uint8_t *arr_ptr = NULL;
+    *led_array_ptr = NULL;
 
-    ESP_LOG(WARN, TAG, "MALLOC");
-    arr_ptr = calloc(total_combined, sizeof(uint8_t));
+    *led_array_ptr = (uint8_t*)calloc(total_combined, sizeof(uint8_t));
 
-    if (!arr_ptr){
+    if (!led_array_ptr){
         ESP_LOG(ERROR, TAG, "Failed to malloc. Aborting");
-        arr_ptr = NULL;
+        led_array_ptr = NULL;
+       
         return ESP_FAIL;
     }
 
-    uint8_t counter = 0;
+    *counter = 0;
 
-    if (populate_led_array_diagonal(arr_ptr, left_forward, left_backward, right_forward, right_backward, pos, &counter) != ESP_OK){
-        ESP_LOG(ERROR, TAG, "Failed to populate diagonal array");
-        if (arr_ptr){
-            ESP_LOG(WARN, TAG, "FREE");
-            free(arr_ptr);
-        }
-        arr_ptr = NULL;
-        return ESP_FAIL;
-    }
-
-    if (populate_led_array_direct(arr_ptr, forward_cells, backward_cells, right_cells, left_cells, pos, &counter) != ESP_OK) {
-        ESP_LOG(ERROR, TAG, "Failed to populate direct array");
-        if (arr_ptr){
-            ESP_LOG(WARN, TAG, "FREE");
-            free(arr_ptr);
-        }
-        arr_ptr = NULL;
-        return ESP_FAIL;
-    }
-
-    local_data.board.board[pos.pos_y][pos.pos_x].led_op(arr_ptr, total_combined);
-
+    if (populate_led_array_diagonal(*led_array_ptr, left_forward, left_backward, right_forward, right_backward, pos, counter) != ESP_OK){
+        ESP_LOG(ERROR, TAG, "Failed to populate diagonal array Queen");
     
-    if (arr_ptr){
-        ESP_LOG(WARN, TAG, "FREE");
-        free(arr_ptr);
+        return ESP_FAIL;
     }
+
+    if (populate_led_array_direct(*led_array_ptr, forward_cells, backward_cells, right_cells, left_cells, pos, counter) != ESP_OK) {
+        ESP_LOG(ERROR, TAG, "Failed to populate direct array Queen");
+    
+        return ESP_FAIL;
+    }
+
+    //local_data.board.board[pos.pos_y][pos.pos_x].led_op(, total_combined);
 
     return ESP_OK;
 
 
 }
 
-esp_err_t king_led_calculations(figure_position_t pos) {
+static uint8_t count_figures_on_board_by_colour(chess_board_t board, bool white) {
+
+    uint8_t counter = 0;
+
+    for (uint8_t i = 0; i < MATRIX_Y; i++){
+
+        for (uint8_t j = 0; j < MATRIX_X; j++){
+
+            if (board.board[i][j].figure_type != FIGURE_END_LIST && board.board[i][j].white == white){
+                counter++;
+            }
+
+        }
+
+    }
+
+    return counter;
+
+}
+
+
+static esp_err_t check_all_enemy_moves_for_pos(chess_board_t board, figure_position_t pos){
+  
+
+    // TODO: assuming .white_turn is correct. Double check that later.
+    bool white = false;
+    white = !board.white_turn;
+   
+    //uint8_t total_figures = count_figures_on_board_by_colour(board, white);
+
+    figure_position_t temp_pos;
+    esp_err_t ret = ESP_FAIL;
+
+    for (uint8_t i = 0; i < MATRIX_Y; i++){
+
+        for (uint8_t j = 0; j < MATRIX_X; j++){
+
+            if (board.board[i][j].figure_type != FIGURE_END_LIST && board.board[i][j].white == white){
+                temp_pos.pos_y = i;
+                temp_pos.pos_x = j;
+                ESP_LOG(WARN, TAG, "Checking for pos %d:%d", temp_pos.pos_y, temp_pos.pos_x);
+                ret = required_leds_calculation(temp_pos, CALCULATIONS_WITHOUT_LEDS, true);
+                if (ret == ESP_ERR_NO_MEM){
+                    ESP_LOG(ERROR, TAG, "At least 1 figure is blocking this move: %d:%d", pos.pos_y, pos.pos_x);
+                    return ret;
+                }
+            }
+
+        }
+
+    }
+
+    return ESP_OK;
+
+}
+
+
+/*uint8_t calculate_diagonal_with_mods(chess_board_t board, figure_position_t pos, uint8_t hor_mod, uint8_t ver_mod, uint8_t limit) {
+    uint8_t result = 0;
+    bool in_check = false;
+    figure_position_t temp_pos;
+
+    if (access_lock()){
+        in_check = local_data.check;
+        release_lock();
+    } else {
+        ESP_LOG(ERROR, TAG, "Can't access lock to get the check status");
+    }
+
+    chess_figures_t figure_type = FIGURE_END_LIST;
+    figure_type = board.board[pos.pos_y][pos.pos_x].figure_type;
+
+    result = required_cells_calculation_diagonal(board, pos, hor_mod, ver_mod, 1, );
+    if (figure_type == FIGURE_KING && in_check && result != 0){
+        temp_pos.pos_y = pos.pos_y + ver_mod;
+        temp_pos.pos_x = pos.pos_x + hor_mod;
+        ESP_LOG(INFO, TAG, "MODS: hor %d ver %d. Original: %d:%d temp modified: %d:%d", hor_mod, ver_mod, pos.pos_y, pos.pos_x, temp_pos.pos_y, temp_pos.pos_x);
+        check_all_enemy_moves_for_pos(board, temp_pos);
+    }
+    return result;
+}*/
+
+esp_err_t king_led_calculations(figure_position_t pos, uint8_t **led_array_ptr, uint8_t *counter) {
 
     chess_board_t board;
+    bool in_check = false;
+    figure_position_t temp_pos;
 
     if(access_lock()){
         board = local_data.board;
+        in_check = local_data.check;
         release_lock();
     } else {
         return ESP_FAIL;
@@ -1092,26 +1448,81 @@ esp_err_t king_led_calculations(figure_position_t pos) {
     uint8_t right_forward = 0;
     uint8_t right_backward = 0;
 
+    // TODO: needs a free at some point.
+    bool attack_possible = false;
+    attackable_figures_t *figures_ptr = calloc(8, sizeof(attackable_figures_t));
+    ESP_LOG(WARN, TAG,"MALLOC");
+    if (!figures_ptr) {
+        ESP_LOG(ERROR, TAG, "Failed to allocate memory. KING.");
+        // TODO: return?
+    }
+    
+
     ESP_LOG(INFO, TAG, "Calculating diagonal moves for king");
 
-    left_forward = required_cells_calculation_diagonal(board, pos, LEFT_MOD, FORWARD_MOD, 1);
-    if (left_forward == POSITION_CALCULATION_ERROR){
-        return ESP_FAIL;
-    }
-    left_backward = required_cells_calculation_diagonal(board, pos, LEFT_MOD, BACKWARD_MOD, 1);
-    if (left_backward == POSITION_CALCULATION_ERROR){
-        return ESP_FAIL;
-    }
-    right_forward = required_cells_calculation_diagonal(board, pos, RIGHT_MOD, FORWARD_MOD, 1);
-    if (right_forward == POSITION_CALCULATION_ERROR){
-        return ESP_FAIL;
-    }
-    right_backward = required_cells_calculation_diagonal(board, pos, RIGHT_MOD, BACKWARD_MOD, 1);
-    if (right_backward == POSITION_CALCULATION_ERROR){
+    left_forward = required_cells_calculation_diagonal(board, pos, LEFT_MOD, FORWARD_MOD, 1, &attack_possible, &figures_ptr[*counter]);
+    
+    if (left_forward == POSITION_CALCULATION_ERROR) {
+        if (figures_ptr){
+            ESP_LOG(WARN, TAG, "FREE");
+            free(figures_ptr);
+        }
         return ESP_FAIL;
     }
 
+    if (attack_possible){
+        (*counter)++;
+        attack_possible = false;
+    }
+
+    left_backward = required_cells_calculation_diagonal(board, pos, LEFT_MOD, BACKWARD_MOD, 1, &attack_possible, &figures_ptr[*counter]);
+    if (left_backward == POSITION_CALCULATION_ERROR) {
+        if (figures_ptr){
+            ESP_LOG(WARN, TAG, "FREE");
+            free(figures_ptr);
+        }
+        return ESP_FAIL;
+    }
+
+    if (attack_possible){
+        (*counter)++;
+        attack_possible = false;
+    }
+    
+    right_forward = required_cells_calculation_diagonal(board, pos, RIGHT_MOD, FORWARD_MOD, 1, &attack_possible, &figures_ptr[*counter]);
+    if (right_forward == POSITION_CALCULATION_ERROR) {
+        if (figures_ptr){
+            ESP_LOG(WARN, TAG, "FREE");
+            free(figures_ptr);
+        }
+        return ESP_FAIL;
+    }
+
+    if (attack_possible){
+        (*counter)++;
+        attack_possible = false;
+    }
+
+    right_backward = required_cells_calculation_diagonal(board, pos, RIGHT_MOD, BACKWARD_MOD, 1,  &attack_possible, &figures_ptr[*counter]);
+    if (right_backward == POSITION_CALCULATION_ERROR) {
+        if (figures_ptr){
+            ESP_LOG(WARN, TAG, "FREE");
+            free(figures_ptr);
+        }
+        return ESP_FAIL;
+    }
+
+    if (attack_possible){
+        (*counter)++;
+        attack_possible = false;
+    }
+
+
     uint8_t total_diagonal = left_forward + left_backward + right_forward + right_backward;
+
+    if (total_diagonal == 0){
+        ESP_LOG(WARN, TAG, "Total diagonal 0");
+    }
 
     uint8_t forward_cells = 0;
     uint8_t backward_cells = 0;
@@ -1120,28 +1531,90 @@ esp_err_t king_led_calculations(figure_position_t pos) {
 
     ESP_LOG(INFO, TAG, "Calculating horisontal and vertical moves for king");
 
-    forward_cells = required_cells_calculation_vertical(board, pos, FORWARD_MOD, 1);
+    
+
+    forward_cells = required_cells_calculation_vertical(board, pos, FORWARD_MOD, 1, &attack_possible, &figures_ptr[*counter]);
     
     if (forward_cells == POSITION_CALCULATION_ERROR) {
+        if (figures_ptr){
+            ESP_LOG(WARN, TAG, "FREE");
+            free(figures_ptr);
+        }
         return ESP_FAIL;
     }
 
-    backward_cells = required_cells_calculation_vertical(board, pos, BACKWARD_MOD, 1);
+    if (attack_possible){
+        (*counter)++;
+        attack_possible = false;
+    }
+
+    backward_cells = required_cells_calculation_vertical(board, pos, BACKWARD_MOD, 1, &attack_possible, &figures_ptr[*counter]);
     
     if (backward_cells == POSITION_CALCULATION_ERROR) {
+        if (figures_ptr){
+            ESP_LOG(WARN, TAG, "FREE");
+            free(figures_ptr);
+        }
         return ESP_FAIL;
     }
 
-    right_cells = required_cells_calculation_horisontal(board, pos, RIGHT_MOD, 1);
+    if (attack_possible){
+        (*counter)++;
+        attack_possible = false;
+    }
+
+    right_cells = required_cells_calculation_horisontal(board, pos, RIGHT_MOD, 1, &attack_possible, &figures_ptr[*counter]);
     
     if (right_cells == POSITION_CALCULATION_ERROR) {
+        if (figures_ptr){
+            ESP_LOG(WARN, TAG, "FREE");
+            free(figures_ptr);
+        }
         return ESP_FAIL;
     }
 
-    left_cells = required_cells_calculation_horisontal(board, pos, LEFT_MOD, 1);
+    if (attack_possible){
+        (*counter)++;
+        attack_possible = false;
+    }
 
-    if (right_cells == POSITION_CALCULATION_ERROR) {
+    left_cells = required_cells_calculation_horisontal(board, pos, LEFT_MOD, 1, &attack_possible, &figures_ptr[*counter]);
+
+    if (left_cells == POSITION_CALCULATION_ERROR) {
+        if (figures_ptr){
+            ESP_LOG(WARN, TAG, "FREE");
+            free(figures_ptr);
+        }
         return ESP_FAIL;
+    }
+
+    if (attack_possible){
+        (*counter)++;
+        attack_possible = false;
+    }
+
+    if (counter != 0) {
+        if (access_lock()){
+
+            if (local_data.current_attackable){
+                ESP_LOG(WARN, TAG, "FREE local_data.current_attackable");
+                free(local_data.current_attackable);
+                local_data.current_attackable = NULL;
+                
+            }
+
+            local_data.counter_attackable = *counter;
+            local_data.current_attackable = figures_ptr;
+
+            release_lock();
+        } else {
+            ESP_LOG(ERROR, TAG, "Failed to access lock when saving attackable figures.");
+            if (figures_ptr) {
+                ESP_LOG(WARN, TAG, "FREE figures_ptr");
+                free(figures_ptr);
+                figures_ptr = NULL;
+            }
+        }
     }
 
     uint8_t total_direct = forward_cells + backward_cells + right_cells + left_cells;
@@ -1149,56 +1622,47 @@ esp_err_t king_led_calculations(figure_position_t pos) {
     uint8_t total_combined = total_diagonal + total_direct;
 
     if (total_combined == 0) {
-        ESP_LOG(WARN, TAG, "No possible moves for bishop or calculations are wrong");
-        return ESP_FAIL;
+        ESP_LOG(WARN, TAG, "No possible moves for king or calculations are wrong");
+        // TODO: free figures_ptr?
+        return ESP_ERR_INVALID_STATE;
     }
 
-    uint8_t *arr_ptr = NULL;
+    *led_array_ptr = NULL;
 
-    ESP_LOG(WARN, TAG, "MALLOC");
-    arr_ptr = calloc(total_combined, sizeof(uint8_t));
+    *led_array_ptr = (uint8_t*)calloc(total_combined, sizeof(uint8_t));
 
-    if (!arr_ptr){
+    if (!led_array_ptr){
         ESP_LOG(ERROR, TAG, "Failed to malloc. Aborting");
-        arr_ptr = NULL;
+        led_array_ptr = NULL;
+       
         return ESP_FAIL;
     }
 
-    uint8_t counter = 0;
+    *counter = 0;
 
-    if (populate_led_array_diagonal(arr_ptr, left_forward, left_backward, right_forward, right_backward, pos, &counter) != ESP_OK){
+    if (populate_led_array_diagonal(*led_array_ptr, left_forward, left_backward, right_forward, right_backward, pos, counter) != ESP_OK){
         ESP_LOG(ERROR, TAG, "Failed to populate diagonal array");
-        if (arr_ptr){
-            ESP_LOG(WARN, TAG, "FREE");
-            free(arr_ptr);
-        }
-        arr_ptr = NULL;
+     
         return ESP_FAIL;
     }
 
-    if (populate_led_array_direct(arr_ptr, forward_cells, backward_cells, right_cells, left_cells, pos, &counter) != ESP_OK) {
+    if (populate_led_array_direct(*led_array_ptr, forward_cells, backward_cells, right_cells, left_cells, pos, counter) != ESP_OK) {
         ESP_LOG(ERROR, TAG, "Failed to populate direct array");
-        if (arr_ptr){
-            ESP_LOG(WARN, TAG, "FREE");
-            free(arr_ptr);
-        }
-        arr_ptr = NULL;
+      
         return ESP_FAIL;
     }
 
-    local_data.board.board[pos.pos_y][pos.pos_x].led_op(arr_ptr, total_combined);
+   // local_data.board.board[pos.pos_y][pos.pos_x].led_op(arr_ptr, total_combined);
 
     
-    if (arr_ptr){
-        ESP_LOG(WARN, TAG, "FREE");
-        free(arr_ptr);
-    }
+  
 
     return ESP_OK;
 }
 
 
-static esp_err_t required_leds_calculation(figure_position_t updated_pos){
+// TODO: refactor this so showing leds would depend on that bool
+static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool show_leds, bool check_calculations){
     
     chess_figures_t current_figure;
 
@@ -1209,17 +1673,44 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos){
         return ESP_FAIL;
     }
 
+    uint8_t *led_array_ptr = NULL;
+    uint8_t counter = 0;
+
+    esp_err_t ret = ESP_FAIL;
+
     // TODO: add error handling
-    switch (current_figure){
+    switch (current_figure){ // TODO: update all the functions the same way as with rook
         case FIGURE_PAWN:
             if (pawn_led_calculation(updated_pos) != ESP_OK){
 
             }
             break;
         case FIGURE_ROOK:
-            if (rook_led_calculation(updated_pos) != ESP_OK) {
+            if (rook_led_calculation(updated_pos, &led_array_ptr, &counter) != ESP_OK) {
 
             }
+            if (local_data.counter_attackable != 0){
+                ESP_LOG(WARN, TAG, "attackable counter %d", local_data.counter_attackable);
+                for (int i = 0; i < local_data.counter_attackable; i++) {
+                    ESP_LOG(WARN, TAG, "Checking type %d on pos %d:%d", local_data.current_attackable->figure, local_data.current_attackable->pos.pos_y,local_data.current_attackable->pos.pos_x);
+                    if (local_data.current_attackable->figure == FIGURE_KING){
+                        if (check_calculations){
+                            ESP_LOG(WARN, TAG, "King under possible attack");
+
+                             if (led_array_ptr){
+                                ESP_LOG(WARN, TAG, "FREE led_array_ptr");
+                                free(led_array_ptr);
+                                led_array_ptr = NULL;
+                            }
+                            return ESP_ERR_NO_MEM;
+
+                        }
+                        ESP_LOG(WARN, TAG, "King under attack");
+                        local_data.check = true;
+                    }
+                }
+            }
+
             break;
         case FIGURE_KNIGHT:
             if (knight_led_calculation(updated_pos) != ESP_OK){
@@ -1227,18 +1718,87 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos){
             }
             break;
         case FIGURE_BISHOP:
-            if (bishop_led_calculation(updated_pos) != ESP_OK){
+            if (bishop_led_calculation(updated_pos, &led_array_ptr, &counter) != ESP_OK){
 
+            }
+            if (local_data.counter_attackable != 0){
+                ESP_LOG(WARN, TAG, "attackable counter %d", local_data.counter_attackable);
+                for (int i = 0; i < local_data.counter_attackable; i++) {
+                    ESP_LOG(WARN, TAG, "Checking type %d on pos %d:%d", local_data.current_attackable->figure, local_data.current_attackable->pos.pos_y,local_data.current_attackable->pos.pos_x);
+                    if (local_data.current_attackable->figure == FIGURE_KING){
+                        if (check_calculations){
+                            ESP_LOG(WARN, TAG, "King under possible attack");
+
+                             if (led_array_ptr){
+                                ESP_LOG(WARN, TAG, "FREE led_array_ptr");
+                                free(led_array_ptr);
+                                led_array_ptr = NULL;
+                            }
+                            return ESP_ERR_NO_MEM;
+
+                        }
+                        ESP_LOG(WARN, TAG, "King under attack");
+                        local_data.check = true;
+                    }
+                }
             }
             break;
         case FIGURE_QUEEN:
-            if (queen_led_calculation(updated_pos) != ESP_OK){
+            if (queen_led_calculation(updated_pos, &led_array_ptr, &counter) != ESP_OK){
 
+            }
+            if (local_data.counter_attackable != 0){
+                ESP_LOG(WARN, TAG, "attackable counter %d", local_data.counter_attackable);
+                for (int i = 0; i < local_data.counter_attackable; i++) {
+                    ESP_LOG(WARN, TAG, "Checking type %d on pos %d:%d", local_data.current_attackable->figure, local_data.current_attackable->pos.pos_y,local_data.current_attackable->pos.pos_x);
+                    if (local_data.current_attackable->figure == FIGURE_KING){
+                        if (check_calculations){
+                            ESP_LOG(WARN, TAG, "King under possible attack");
+
+                             if (led_array_ptr){
+                                ESP_LOG(WARN, TAG, "FREE led_array_ptr");
+                                free(led_array_ptr);
+                                led_array_ptr = NULL;
+                            }
+                            return ESP_ERR_NO_MEM;
+
+                        }
+                        ESP_LOG(WARN, TAG, "King under attack");
+                        local_data.check = true;
+                    }
+                }
             }
             break;
         case FIGURE_KING:
-            if (king_led_calculations(updated_pos) != ESP_OK){
+            ret = king_led_calculations(updated_pos, &led_array_ptr, &counter);
+            if (ret != ESP_OK){
+                if (ret == ESP_ERR_INVALID_STATE){
+                    ESP_LOG(WARN, TAG, "Either error in calculations or no possible moves for king");
+                    if (show_leds) {
+                        led_no_move_possible(MATRIX_TO_ARRAY_CONVERSION(updated_pos.pos_y, updated_pos.pos_x));
+                    }
+                }
+            }
+            if (local_data.counter_attackable != 0){
+                ESP_LOG(WARN, TAG, "attackable counter %d", local_data.counter_attackable);
+                for (int i = 0; i < local_data.counter_attackable; i++) {
+                    ESP_LOG(WARN, TAG, "Checking type %d on pos %d:%d", local_data.current_attackable->figure, local_data.current_attackable->pos.pos_y,local_data.current_attackable->pos.pos_x);
+                    if (local_data.current_attackable->figure == FIGURE_KING){
+                        if (check_calculations){
+                            ESP_LOG(WARN, TAG, "King under possible attack");
 
+                             if (led_array_ptr){
+                                ESP_LOG(WARN, TAG, "FREE led_array_ptr");
+                                free(led_array_ptr);
+                                led_array_ptr = NULL;
+                            }
+                            return ESP_ERR_NO_MEM;
+
+                        }
+                        ESP_LOG(WARN, TAG, "King under attack");
+                        local_data.check = true;
+                    }
+                }
             }
             break;
 
@@ -1247,6 +1807,25 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos){
         }
 
 
+    if (show_leds) {
+        ESP_LOG(INFO, TAG, "Showing LEDS");
+        ESP_LOG(INFO, TAG, "Counter: %d", counter);
+        if (!led_array_ptr){
+            ESP_LOG(ERROR, TAG, "Null ptr");
+        } else {
+            ESP_LOG(INFO, TAG, "Array 0 after returning from function %d", led_array_ptr[0]);
+            local_data.board.board[updated_pos.pos_y][updated_pos.pos_x].led_op(led_array_ptr, counter);
+        }
+        
+        
+    }
+
+
+    if (led_array_ptr){
+        ESP_LOG(WARN, TAG, "FREE led_array_ptr main");
+        free(led_array_ptr);
+        led_array_ptr = NULL;
+    }
     return ESP_OK;
 }
 
@@ -1274,10 +1853,13 @@ static void chess_engine_task(void *args){
     bool valid_colour_for_turn = false;
     bool last_figure_valid_colour = false;
 
+    bool check = false;
+
     while(1){
 
         if (access_lock()){
             board = local_data.board;
+            check = local_data.check;
             release_lock();
         } else {
             
@@ -1287,7 +1869,7 @@ static void chess_engine_task(void *args){
                 if (chess_queue_receiver(&change_data) != ESP_OK){
 
                 } else {
-                    allowed_to_do_move = true;
+                    allowed_to_do_move = true; // TODO: probably no longer needed
                     last_figure_lifted = local_data.last_change_data.lifted;
                     different_colours = (board.board[change_data.pos.pos_y][change_data.pos.pos_x].white != board.board[local_data.last_change_data.pos.pos_y][local_data.last_change_data.pos.pos_x].white);
                     same_position = ((change_data.pos.pos_y == local_data.last_change_data.pos.pos_y) && (change_data.pos.pos_x == local_data.last_change_data.pos.pos_x));
@@ -1325,7 +1907,7 @@ static void chess_engine_task(void *args){
                         } else {
 
                             if (valid_colour_for_turn) {
-                                required_leds_calculation(change_data.pos);
+                                required_leds_calculation(change_data.pos, CALCULATIONS_WITH_LEDS, false);
                                 
                             } else {
                                 ESP_LOG(WARN, TAG, "Here1");
@@ -1349,6 +1931,8 @@ static void chess_engine_task(void *args){
                                         
                                 ESP_LOG(WARN, TAG, "Figure was moved from %d:%d to %d:%d", local_data.last_change_data.pos.pos_y, local_data.last_change_data.pos.pos_x, change_data.pos.pos_y, change_data.pos.pos_x);
                                         
+                                required_leds_calculation(change_data.pos, CALCULATIONS_WITHOUT_LEDS, false);
+
                                 local_data.board.white_turn = !local_data.board.white_turn; // Changing turns
                                 ESP_LOG(INFO, TAG, "%s turn now!", local_data.board.white_turn ? "white" : "black");
                             } else {
@@ -1364,6 +1948,9 @@ static void chess_engine_task(void *args){
                             local_data.board.board[change_data.pos.pos_y][change_data.pos.pos_x] = local_data.board.board[attacking_figure_initial_position.pos_y][attacking_figure_initial_position.pos_x];
                             local_data.board.board[attacking_figure_initial_position.pos_y][attacking_figure_initial_position.pos_x].figure_type = FIGURE_END_LIST;
                             local_data.board.board[attacking_figure_initial_position.pos_y][attacking_figure_initial_position.pos_x].led_op = NULL;
+                            
+                            required_leds_calculation(change_data.pos, CALCULATIONS_WITHOUT_LEDS, false);
+
                             local_data.board.white_turn = !local_data.board.white_turn; // Changing turns
                             ESP_LOG(INFO, TAG, "%s turn now!", local_data.board.white_turn ? "white" : "black");
                             attacking = false;

@@ -34,7 +34,7 @@
 #define VERSION_NUMBER_X 0
 #define VERSION_NUMBER_Y 2
 
-//#define LED_TEST
+#define LED_TEST
 
 typedef struct local_data {
 
@@ -226,6 +226,7 @@ void app_main(void)
         led_test2();
         vTaskDelay(1000 / portTICK_PERIOD_MS);
         led_test3();
+        vTaskDelay(10000/portTICK_PERIOD_MS);
 #endif
     }
 
