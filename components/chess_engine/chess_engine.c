@@ -39,6 +39,8 @@ typedef struct local_data{
     attackable_figures_t *current_attackable;
     uint8_t counter_attackable;
 
+    figure_position_t possible_king_move;
+
     bool check;
 
 } local_data_t;
@@ -1451,6 +1453,11 @@ static esp_err_t check_all_enemy_moves_for_pos(chess_board_t board, figure_posit
     figure_position_t temp_pos;
     esp_err_t ret = ESP_FAIL;
 
+    printf("Minimum free heap size: %" PRIu32 " bytes\n", esp_get_minimum_free_heap_size());
+    ESP_LOG(INFO, TAG, "CHECKING POS %d:%d_____________________________________", pos.pos_y, pos.pos_x);
+    local_data.possible_king_move = pos;
+
+
     for (uint8_t i = 0; i < MATRIX_Y; i++){
 
         for (uint8_t j = 0; j < MATRIX_X; j++){
@@ -1469,6 +1476,8 @@ static esp_err_t check_all_enemy_moves_for_pos(chess_board_t board, figure_posit
         }
 
     }
+
+    printf("Minimum free heap size: %" PRIu32 " bytes\n", esp_get_minimum_free_heap_size());
 
     return ESP_OK;
 
@@ -1491,13 +1500,16 @@ uint8_t calculate_diagonal_with_mods(chess_board_t board, figure_position_t pos,
     figure_type = board.board[pos.pos_y][pos.pos_x].figure_type;
 
     result = required_cells_calculation_diagonal(board, pos, hor_mod, ver_mod, limit, attack_possible, figure[*counter]); // TODO: not sure of this
-    if (figure_type == FIGURE_KING && in_check && result != 0 && limit == 1){
+    if (figure_type == FIGURE_KING && result != 0 && limit == 1){
         temp_pos.pos_y = pos.pos_y + ver_mod;
         temp_pos.pos_x = pos.pos_x + hor_mod;
         ESP_LOG(INFO, TAG, "MODS: hor %d ver %d. Original: %d:%d temp modified: %d:%d", hor_mod, ver_mod, pos.pos_y, pos.pos_x, temp_pos.pos_y, temp_pos.pos_x);
         if (check_all_enemy_moves_for_pos(board, temp_pos) == ESP_ERR_NO_MEM){
             ESP_LOG(INFO, TAG, "No possible attacks for pos %d:%d", temp_pos.pos_y, temp_pos.pos_x);
             result = 0;
+        }
+        if (in_check) {
+            ESP_LOG(WARN, TAG, "PLACEHOLDER")
         }
     }
     return result;
@@ -1521,13 +1533,16 @@ static uint8_t calculate_horisontal_with_mods(chess_board_t board, figure_positi
 
     // TODO: not sure of this
     result = required_cells_calculation_horisontal(board, pos, hor_mod, limit, attack_possible, figure[*counter]);
-    if (figure_type == FIGURE_KING && in_check && result != 0 && limit == 1){
+    if (figure_type == FIGURE_KING  && result != 0 && limit == 1){
         temp_pos.pos_y = pos.pos_y;
         temp_pos.pos_x = pos.pos_x + hor_mod;
         ESP_LOG(INFO, TAG, "MODS: hor %d ver %d. Original: %d:%d temp modified: %d:%d", hor_mod, 1, pos.pos_y, pos.pos_x, temp_pos.pos_y, temp_pos.pos_x);
         if (check_all_enemy_moves_for_pos(board, temp_pos) == ESP_ERR_NO_MEM){
             ESP_LOG(INFO, TAG, "No possible attacks for pos %d:%d", temp_pos.pos_y, temp_pos.pos_x);
             result = 0;
+        }
+        if (in_check) {
+            ESP_LOG(WARN, TAG, "PLACEHOLDER")
         }
     }
     return result;
@@ -1552,13 +1567,16 @@ static uint8_t calculate_vertical_with_mods(chess_board_t board, figure_position
 
     // TODO: not sure of this
     result = required_cells_calculation_vertical(board, pos, ver_mod, limit, attack_possible, figure[*counter]);
-    if (figure_type == FIGURE_KING && in_check && result != 0 && limit == 1){
+    if (figure_type == FIGURE_KING && result != 0 && limit == 1){
         temp_pos.pos_y = pos.pos_y + ver_mod;
         temp_pos.pos_x = pos.pos_x;
         ESP_LOG(INFO, TAG, "MODS: hor %d ver %d. Original: %d:%d temp modified: %d:%d", 1, ver_mod, pos.pos_y, pos.pos_x, temp_pos.pos_y, temp_pos.pos_x);
         if (check_all_enemy_moves_for_pos(board, temp_pos) == ESP_ERR_NO_MEM){
             ESP_LOG(INFO, TAG, "No possible attacks for pos %d:%d", temp_pos.pos_y, temp_pos.pos_x);
             result = 0;
+        }
+        if (in_check) {
+            ESP_LOG(WARN, TAG, "PLACEHOLDER")
         }
     }
     return result;
@@ -1666,6 +1684,8 @@ esp_err_t king_led_calculations(figure_position_t pos, uint8_t **led_array_ptr, 
 
     if (total_diagonal == 0){
         ESP_LOG(WARN, TAG, "Total diagonal 0");
+    } else {
+        ESP_LOG(WARN, TAG, "Total diagonal %d", total_diagonal);
     }
 
     uint8_t forward_cells = 0;
@@ -1843,8 +1863,8 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
             if (local_data.counter_attackable != 0){
                 ESP_LOG(WARN, TAG, "attackable counter %d", local_data.counter_attackable);
                 for (int i = 0; i < local_data.counter_attackable; i++) {
-                    ESP_LOG(WARN, TAG, "Checking type %d on pos %d:%d", local_data.current_attackable->figure, local_data.current_attackable->pos.pos_y,local_data.current_attackable->pos.pos_x);
-                    if (local_data.current_attackable->figure == FIGURE_KING){
+                    ESP_LOG(WARN, TAG, "Checking type %d on pos %d:%d", local_data.current_attackable[i].figure, local_data.current_attackable[i].pos.pos_y,local_data.current_attackable[i].pos.pos_x);
+                    if (local_data.current_attackable[i].figure == FIGURE_KING){
                         if (check_calculations){
                             ESP_LOG(WARN, TAG, "King under possible attack from rook");
 
@@ -1859,6 +1879,9 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
                         ESP_LOG(WARN, TAG, "King under attack");
                         local_data.check = true;
                     }
+
+                    
+
                 }
             }
 
@@ -1959,6 +1982,25 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
             ESP_LOG(ERROR, TAG, "Incorrect figure type. Aborting");
         }
 
+
+    if (check_calculations) {
+        uint8_t possible_move_converted = MATRIX_TO_ARRAY_CONVERSION(local_data.possible_king_move.pos_y, local_data.possible_king_move.pos_x);
+        ESP_LOG(WARN, TAG, "converted %d", possible_move_converted);
+        for (int i = 0; i < counter; i++){
+            if (led_array_ptr[i] == possible_move_converted) {
+                ESP_LOG(ERROR, TAG, "Gentelmen, we found him");
+                ESP_LOG(INFO, TAG, "Led array i %d", led_array_ptr[i]);
+                ESP_LOG(WARN, TAG, "King would be under possible attack from rook at %d:%d converted %d", local_data.possible_king_move.pos_y,local_data.possible_king_move.pos_x, MATRIX_TO_ARRAY_CONVERSION(local_data.possible_king_move.pos_y, local_data.possible_king_move.pos_x));
+
+                if (led_array_ptr){
+                    ESP_LOG(WARN, TAG, "FREE led_array_ptr");
+                    free(led_array_ptr);
+                    led_array_ptr = NULL;
+                }
+                return ESP_ERR_NO_MEM;
+            }
+        }
+    }
 
     if (show_leds) {
         ESP_LOG(INFO, TAG, "Showing LEDS");

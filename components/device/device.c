@@ -232,8 +232,15 @@ static void device_task(){
                     // TODO: double check about this reversed order
                     if ((bool)level != local_data.switch_matrix[i][j]){
                         ESP_LOG(WARN, TAG, "Change detected at pin %d  with pin %d set. at level %d array id %d:%d", in_pins[j], out_pins[i], level, i, j);
-                        local_data.switch_matrix[i][j] = level ? true : false;
-                        print_array();    
+                        vTaskDelay(500/portTICK_PERIOD_MS);
+                        device_get_pin_level(in_pins[j], &level);
+
+                        if ((bool)level != local_data.switch_matrix[i][j]){
+                            ESP_LOG(WARN, TAG, "Change detected again at pin %d  with pin %d set. at level %d array id %d:%d", in_pins[j], out_pins[i], level, i, j);
+                        
+                            local_data.switch_matrix[i][j] = level ? true : false;
+                            print_array();  
+                        }  
                     }
                     //ESP_LOG(WARN, TAG, "Pin %d  pos %d level %d", in_pins[j], j, level);
                     
