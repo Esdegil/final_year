@@ -71,7 +71,7 @@ esp_err_t chess_engine_init(){
     }
 
 
-    xTaskCreate(chess_engine_task, TASK_NAME, configMINIMAL_STACK_SIZE*2, &params, tskIDLE_PRIORITY, &local_data.task_handle);
+    xTaskCreate(chess_engine_task, TASK_NAME, configMINIMAL_STACK_SIZE*3, &params, tskIDLE_PRIORITY, &local_data.task_handle);
 
     if (local_data.task_handle == NULL){
         ESP_LOG(ERROR, TAG, "Failed to create task: %s. Aborting.", TASK_NAME);
@@ -95,13 +95,15 @@ esp_err_t chess_engine_init(){
         local_data.board.white_turn = true;
 
     // White figures init
+        local_data.board.board[0][3].figure_type = FIGURE_END_LIST;
         local_data.board.board[0][0].figure_type = FIGURE_END_LIST;
-        local_data.board.board[0][1].figure_type = FIGURE_END_LIST;
-        local_data.board.board[0][2].figure_type = FIGURE_ROOK;
+        local_data.board.board[0][1].figure_type = FIGURE_ROOK;
+        local_data.board.board[0][2].figure_type = FIGURE_END_LIST;
 
         local_data.board.board[0][0].white = true;
         local_data.board.board[0][1].white = true;
         local_data.board.board[0][2].white = true;
+        local_data.board.board[0][3].white = true;
 
         local_data.board.board[0][0].pos_x = 0;
         local_data.board.board[0][0].pos_y = 0;
@@ -115,34 +117,39 @@ esp_err_t chess_engine_init(){
         local_data.board.board[0][0].led_op = &led_op_pawn;
         local_data.board.board[0][1].led_op = &led_op_pawn;
         local_data.board.board[0][2].led_op = &led_op_pawn;
+        local_data.board.board[0][3].led_op = &led_op_pawn;
 
 
         
 
     // Black figures init
-        local_data.board.board[2][0].figure_type = FIGURE_KING;
-        local_data.board.board[2][1].figure_type = FIGURE_PAWN;
-        local_data.board.board[2][2].figure_type = FIGURE_END_LIST;
+        local_data.board.board[3][0].figure_type = FIGURE_KING;
+        local_data.board.board[3][1].figure_type = FIGURE_PAWN;
+        local_data.board.board[3][2].figure_type = FIGURE_END_LIST;
+        local_data.board.board[3][3].figure_type = FIGURE_END_LIST;
 
-        local_data.board.board[2][0].white = false;
-        local_data.board.board[2][1].white = false;
-        local_data.board.board[2][2].white = false;
+        local_data.board.board[3][0].white = false;
+        local_data.board.board[3][1].white = false;
+        local_data.board.board[3][2].white = false;
+        local_data.board.board[3][3].white = false;
 
-        local_data.board.board[2][0].pos_x = 0;
-        local_data.board.board[2][0].pos_y = 2;
+        local_data.board.board[3][0].pos_x = 0;
+        local_data.board.board[3][0].pos_y = 2;
 
-        local_data.board.board[2][1].pos_x = 1;
-        local_data.board.board[2][1].pos_y = 2;
+        local_data.board.board[3][1].pos_x = 1;
+        local_data.board.board[3][1].pos_y = 2;
 
-        local_data.board.board[2][2].pos_x = 2;
-        local_data.board.board[2][2].pos_y = 2;
+        local_data.board.board[3][2].pos_x = 2;
+        local_data.board.board[3][2].pos_y = 2;
 
-        local_data.board.board[2][0].led_op = &led_op_pawn;
-        local_data.board.board[2][1].led_op = &led_op_pawn;
-        local_data.board.board[2][2].led_op = &led_op_pawn;
+        local_data.board.board[3][0].led_op = &led_op_pawn;
+        local_data.board.board[3][1].led_op = &led_op_pawn;
+        local_data.board.board[3][2].led_op = &led_op_pawn;
+        local_data.board.board[3][3].led_op = &led_op_pawn;
 
     // Rest of the board
 
+        /*
         local_data.board.board[1][0].figure_type = FIGURE_END_LIST;
         local_data.board.board[1][1].figure_type = FIGURE_END_LIST;
         local_data.board.board[1][2].figure_type = FIGURE_END_LIST;
@@ -160,6 +167,31 @@ esp_err_t chess_engine_init(){
 
         local_data.board.board[1][2].pos_x = 2;
         local_data.board.board[1][2].pos_y = 1;
+        */
+
+
+        for (int i = 1; i < 3; i++){
+            for (int j = 0; j < 4; j++){
+                local_data.board.board[i][j].figure_type = FIGURE_END_LIST;
+                // TODO: maybe expand this
+            }
+        }
+
+        local_data.board.board[1][0].figure_type = FIGURE_KNIGHT;
+
+        local_data.board.board[1][0].white = true;
+
+        local_data.board.board[1][0].led_op = &led_op_pawn;
+
+
+        local_data.board.board[2][3].figure_type = FIGURE_BISHOP;
+
+        local_data.board.board[2][3].white = false;
+
+        local_data.board.board[2][3].led_op = &led_op_pawn;
+
+        
+
     }
 
 
@@ -212,6 +244,7 @@ static esp_err_t movement_forward_calculation(uint8_t empty_cells, figure_positi
     
 }
 
+// TODO: maybe redo this fully
 static esp_err_t pawn_led_calculation(figure_position_t pos) {
     
     chess_board_t board;
@@ -246,7 +279,8 @@ static esp_err_t pawn_led_calculation(figure_position_t pos) {
         if (pos.pos_x > 0) {
             if (board.board[pos.pos_y+1][pos.pos_x-1].figure_type != FIGURE_END_LIST){ // attacking movement
                 ESP_LOG(WARN, TAG, "Calculating left attacking move. White");
-                available_moves[counter]=(MATRIX_X*(pos.pos_y+1)) + pos.pos_x-1;
+                //available_moves[counter]=(MATRIX_X*(pos.pos_y+1)) + pos.pos_x-1;
+                available_moves[counter] = MATRIX_TO_ARRAY_CONVERSION(pos.pos_y+1, pos.pos_x-1);
                 counter++;
             }
         } else {
@@ -256,7 +290,8 @@ static esp_err_t pawn_led_calculation(figure_position_t pos) {
         if (pos.pos_x < MATRIX_X-1){
             if (board.board[pos.pos_y+1][pos.pos_x+1].figure_type != FIGURE_END_LIST){ // attacking movement
             ESP_LOG(WARN, TAG, "Calculating right attacking move. White");
-                available_moves[counter]=(MATRIX_X*(pos.pos_y+1)) + pos.pos_x+1;
+                //available_moves[counter]=(MATRIX_X*(pos.pos_y+1)) + pos.pos_x+1;
+                available_moves[counter] = MATRIX_TO_ARRAY_CONVERSION(pos.pos_y+1, pos.pos_x+1);
                 counter++;
             }
         } else {
@@ -282,7 +317,8 @@ static esp_err_t pawn_led_calculation(figure_position_t pos) {
         if (pos.pos_x != 0){
             if (board.board[pos.pos_y-1][pos.pos_x-1].figure_type != FIGURE_END_LIST){ // attacking movement
                 ESP_LOG(WARN, TAG, "Calculating left attacking move. Black");
-                available_moves[counter]=(MATRIX_X*(pos.pos_y-1)) + pos.pos_x-1;
+                //available_moves[counter]=(MATRIX_X*(pos.pos_y-1)) + pos.pos_x-1;
+                available_moves[counter] = MATRIX_TO_ARRAY_CONVERSION(pos.pos_y-1, pos.pos_x-1);
                 counter++;
             }
         } else {
@@ -292,7 +328,8 @@ static esp_err_t pawn_led_calculation(figure_position_t pos) {
         if (pos.pos_x < MATRIX_X - 1) {
             if (board.board[pos.pos_y-1][pos.pos_x+1].figure_type != FIGURE_END_LIST){ // attacking movement
                 ESP_LOG(WARN, TAG, "Calculating right attacking move. Black");
-                available_moves[counter]=(MATRIX_X*(pos.pos_y-1)) + pos.pos_x+1;
+                //available_moves[counter]=(MATRIX_X*(pos.pos_y-1)) + pos.pos_x+1;
+                available_moves[counter] = MATRIX_TO_ARRAY_CONVERSION(pos.pos_y-1, pos.pos_x+1);
                 counter++;
             }
         } else {
@@ -499,12 +536,12 @@ static esp_err_t required_cells_calculation_diagonal(chess_board_t board, figure
     ESP_LOG(DEBUG, TAG, "Mods passed y:%d x:%d", mod_y, mod_x)
 
     if (mod_x != RIGHT_MOD && mod_x != LEFT_MOD){
-        ESP_LOG(ERROR, TAG, "Incorrect mod_x modificator passed. returning 255");
+        ESP_LOG(ERROR, TAG, "Incorrect mod_x modificator passed :%d. returning 255", mod_x);
         return POSITION_CALCULATION_ERROR;
     }
 
     if (mod_y != FORWARD_MOD && mod_y != BACKWARD_MOD){
-        ESP_LOG(ERROR, TAG, "Incorrect mod_y modificator passed. returning 255");
+        ESP_LOG(ERROR, TAG, "Incorrect mod_y modificator passed %d. returning 255", mod_y);
         return POSITION_CALCULATION_ERROR;
     }
 
@@ -595,31 +632,41 @@ static esp_err_t populate_led_array_direct(uint8_t *array, uint8_t fw, uint8_t b
         return ESP_FAIL;
     }
 
-    ESP_LOG(INFO, TAG, "Filling horisontal and vertical");
+    ESP_LOG(INFO, TAG, "Filling horisontal and vertical. Base pos %d:%d", pos.pos_y, pos.pos_x);
 
     
         for (int i = 1; i <= fw; i++){
-            array[*counter] = (((pos.pos_y+i)*MATRIX_Y) + pos.pos_x);
+            //array[*counter] = (((pos.pos_y+i)*MATRIX_Y) + pos.pos_x);
+            
+            array[*counter] = MATRIX_TO_ARRAY_CONVERSION((pos.pos_y+i), pos.pos_x);
+            ESP_LOG(WARN, TAG, "FW  i %d filled %d", i, array[*counter]);
             (*counter)++;
         }
     
     
         for (int i = 1; i <= bc; i++){
-            array[*counter] = (((pos.pos_y-i)*MATRIX_Y) + pos.pos_x);
+            //array[*counter] = (((pos.pos_y-i)*MATRIX_Y) + pos.pos_x);
+            //ESP_LOG(WARN, TAG, "moded %d:%d. Test: %d", pos.pos_y-i, pos.pos_x, ((pos.pos_y-1) * MATRIX_Y) + pos.pos_x);
+            array[*counter] = MATRIX_TO_ARRAY_CONVERSION((pos.pos_y-i), pos.pos_x);
+            ESP_LOG(WARN, TAG, "BC i %d filled %d", i, array[*counter]);
             (*counter)++;
         }
     
 
     
         for (int i = 1; i <= r; i++){
-            array[*counter] = ((pos.pos_y*MATRIX_Y) + (pos.pos_x+i));
+            //array[*counter] = ((pos.pos_y*MATRIX_Y) + (pos.pos_x+i));
+            array[*counter] = MATRIX_TO_ARRAY_CONVERSION(pos.pos_y, (pos.pos_x+i));
+            ESP_LOG(WARN, TAG, "R i %d filled %d", i, array[*counter]);
             (*counter)++;
         }
     
 
     
         for (int i = 1; i <= l; i++){
-            array[*counter] = ((pos.pos_y*MATRIX_Y) + (pos.pos_x-i));
+            //array[*counter] = ((pos.pos_y*MATRIX_Y) + (pos.pos_x-i));
+            array[*counter] = MATRIX_TO_ARRAY_CONVERSION(pos.pos_y, (pos.pos_x-i));
+            ESP_LOG(WARN, TAG, "L i %d filled %d", i, array[*counter]);
             (*counter)++;
         }
     
@@ -855,12 +902,15 @@ static esp_err_t knight_led_calculation(figure_position_t pos) {
                 if (board.board[pos.pos_y+2][pos.pos_x+1].white != board.board[pos.pos_y][pos.pos_x].white){
                     ESP_LOG(WARN, TAG, "Enemy figure y+2 x +1");
                     ESP_LOG(WARN, TAG, "Y + 2 x + 1");
-                    array[empty_cells] = (((pos.pos_y+2)*MATRIX_Y) + pos.pos_x+1);
+                    //array[empty_cells] = (((pos.pos_y+2)*MATRIX_Y) + pos.pos_x+1);
+                    array[empty_cells] = MATRIX_TO_ARRAY_CONVERSION((pos.pos_y+2), (pos.pos_x+1));
                     empty_cells++;
                 }
             } else {
                 ESP_LOG(WARN, TAG, "Y + 2 x + 1");
-                array[empty_cells] = (((pos.pos_y+2)*MATRIX_Y) + pos.pos_x+1);
+                //array[empty_cells] = (((pos.pos_y+2)*MATRIX_Y) + pos.pos_x+1);
+                array[empty_cells] = MATRIX_TO_ARRAY_CONVERSION((pos.pos_y+2), (pos.pos_x+1));
+
                 empty_cells++;
             }
         }   
@@ -869,12 +919,16 @@ static esp_err_t knight_led_calculation(figure_position_t pos) {
                 if (board.board[pos.pos_y+2][pos.pos_x-1].white != board.board[pos.pos_y][pos.pos_x].white){
                     ESP_LOG(WARN, TAG, "Enemy figure y+2 x-1");
                     ESP_LOG(WARN, TAG, "Y + 2 x - 1");
-                    array[empty_cells] = (((pos.pos_y+2)*MATRIX_Y) + pos.pos_x-1);
+                   // array[empty_cells] = (((pos.pos_y+2)*MATRIX_Y) + pos.pos_x-1);
+                    array[empty_cells] = MATRIX_TO_ARRAY_CONVERSION((pos.pos_y+2), (pos.pos_x-1));
+                    
                     empty_cells++;
                 }
             } else {
                 ESP_LOG(WARN, TAG, "Y + 2 x - 1");
-                array[empty_cells] = (((pos.pos_y+2)*MATRIX_Y) + pos.pos_x-1);
+                //array[empty_cells] = (((pos.pos_y+2)*MATRIX_Y) + pos.pos_x-1);
+                array[empty_cells] = MATRIX_TO_ARRAY_CONVERSION((pos.pos_y+2), (pos.pos_x-1));
+                    
                 empty_cells++;
             }
         }
@@ -887,12 +941,16 @@ static esp_err_t knight_led_calculation(figure_position_t pos) {
             if (board.board[pos.pos_y-2][pos.pos_x+1].figure_type != FIGURE_END_LIST){
                 if (board.board[pos.pos_y-2][pos.pos_x+1].white != board.board[pos.pos_y][pos.pos_x].white){
                     ESP_LOG(WARN, TAG, "Enemy figure y-2 x +1");
-                    array[empty_cells] = (((pos.pos_y-2)*MATRIX_Y) + pos.pos_x+1);
+                    //array[empty_cells] = (((pos.pos_y-2)*MATRIX_Y) + pos.pos_x+1);
+                    array[empty_cells] = MATRIX_TO_ARRAY_CONVERSION((pos.pos_y-2), (pos.pos_x+1));
+                    
                     empty_cells++;
                 }
             } else {
                 ESP_LOG(WARN, TAG, "Y - 2 x + 1");
-                array[empty_cells] = (((pos.pos_y-2)*MATRIX_Y) + pos.pos_x+1);
+                //array[empty_cells] = (((pos.pos_y-2)*MATRIX_Y) + pos.pos_x+1);
+                array[empty_cells] = MATRIX_TO_ARRAY_CONVERSION((pos.pos_y-2), (pos.pos_x+1));
+                    
                 empty_cells++;
             }
         }
@@ -900,12 +958,16 @@ static esp_err_t knight_led_calculation(figure_position_t pos) {
             if (board.board[pos.pos_y-2][pos.pos_x-1].figure_type != FIGURE_END_LIST){
                 if (board.board[pos.pos_y-2][pos.pos_x-1].white != board.board[pos.pos_y][pos.pos_x].white){
                     ESP_LOG(WARN, TAG, "Enemy figure y-2 x-1");
-                    array[empty_cells] = (((pos.pos_y-2)*MATRIX_Y) + pos.pos_x-1);
+                    //array[empty_cells] = (((pos.pos_y-2)*MATRIX_Y) + pos.pos_x-1);
+                    array[empty_cells] = MATRIX_TO_ARRAY_CONVERSION((pos.pos_y-2), (pos.pos_x-1));
+                    
                     empty_cells++;
                 }
             } else {
                 ESP_LOG(WARN, TAG, "Y - 2 x - 1");
-                array[empty_cells] = (((pos.pos_y-2)*MATRIX_Y) + pos.pos_x-1);
+                //array[empty_cells] = (((pos.pos_y-2)*MATRIX_Y) + pos.pos_x-1);
+                array[empty_cells] = MATRIX_TO_ARRAY_CONVERSION((pos.pos_y-2), (pos.pos_x-1));
+                    
                 empty_cells++;
             }
         }
@@ -917,12 +979,15 @@ static esp_err_t knight_led_calculation(figure_position_t pos) {
             if (board.board[pos.pos_y+1][pos.pos_x+2].figure_type != FIGURE_END_LIST){
                 if (board.board[pos.pos_y+1][pos.pos_x+2].white != board.board[pos.pos_y][pos.pos_x].white){
                     ESP_LOG(WARN, TAG, "Enemy figure y+1 x+2");
-                    array[empty_cells] = (((pos.pos_y+1)*MATRIX_Y) + pos.pos_x+2);
+                    //array[empty_cells] = (((pos.pos_y+1)*MATRIX_Y) + pos.pos_x+2);
+                    array[empty_cells] = MATRIX_TO_ARRAY_CONVERSION((pos.pos_y+1), (pos.pos_x+2));
+                    
                     empty_cells++;
                 }
             } else {
                 ESP_LOG(WARN, TAG, "Y + 1 x + 2");
-                array[empty_cells] = (((pos.pos_y+1)*MATRIX_Y) + pos.pos_x+2);
+                //array[empty_cells] = (((pos.pos_y+1)*MATRIX_Y) + pos.pos_x+2);
+                array[empty_cells] = MATRIX_TO_ARRAY_CONVERSION((pos.pos_y+1), (pos.pos_x+2));
                 empty_cells++;
             }
         }
@@ -930,12 +995,14 @@ static esp_err_t knight_led_calculation(figure_position_t pos) {
             if (board.board[pos.pos_y-1][pos.pos_x+2].figure_type != FIGURE_END_LIST){
                 if (board.board[pos.pos_y-1][pos.pos_x+2].white != board.board[pos.pos_y][pos.pos_x].white){
                     ESP_LOG(WARN, TAG, "Enemy figure y-1 x+2");
-                    array[empty_cells] = (((pos.pos_y-1)*MATRIX_Y) + pos.pos_x+2);
+                    //array[empty_cells] = (((pos.pos_y-1)*MATRIX_Y) + pos.pos_x+2);
+                    array[empty_cells] = MATRIX_TO_ARRAY_CONVERSION((pos.pos_y-1), (pos.pos_x+2));
                     empty_cells++;
                 }
             } else {
                 ESP_LOG(WARN, TAG, "Y - 1 x + 2");
-                array[empty_cells] = (((pos.pos_y-1)*MATRIX_Y) + pos.pos_x+2);
+                //array[empty_cells] = (((pos.pos_y-1)*MATRIX_Y) + pos.pos_x+2);
+                array[empty_cells] = MATRIX_TO_ARRAY_CONVERSION((pos.pos_y-1), (pos.pos_x+2));
                 empty_cells++;
             }
         }
@@ -947,12 +1014,14 @@ static esp_err_t knight_led_calculation(figure_position_t pos) {
             if (board.board[pos.pos_y+1][pos.pos_x-2].figure_type != FIGURE_END_LIST){
                 if (board.board[pos.pos_y+1][pos.pos_x-2].white != board.board[pos.pos_y][pos.pos_x].white){
                     ESP_LOG(WARN, TAG, "Enemy figure y+1 x-2");
-                    array[empty_cells] = (((pos.pos_y+1)*MATRIX_Y) + pos.pos_x-2);
+                    //array[empty_cells] = (((pos.pos_y+1)*MATRIX_Y) + pos.pos_x-2);
+                    array[empty_cells] = MATRIX_TO_ARRAY_CONVERSION((pos.pos_y+1), (pos.pos_x-2));
                     empty_cells++;
                 }
             } else {
                 ESP_LOG(WARN, TAG, "Y + 1 x - 2");
-                array[empty_cells] = (((pos.pos_y+1)*MATRIX_Y) + pos.pos_x-2);
+               // array[empty_cells] = (((pos.pos_y+1)*MATRIX_Y) + pos.pos_x-2);
+                array[empty_cells] = MATRIX_TO_ARRAY_CONVERSION((pos.pos_y+1), (pos.pos_x-2));
                 empty_cells++;
             }
         }
@@ -960,12 +1029,14 @@ static esp_err_t knight_led_calculation(figure_position_t pos) {
             if (board.board[pos.pos_y-1][pos.pos_x-2].figure_type != FIGURE_END_LIST){
                 if (board.board[pos.pos_y-1][pos.pos_x-2].white != board.board[pos.pos_y][pos.pos_x].white){
                     ESP_LOG(WARN, TAG, "Enemy figure y-1 x-2");
-                    array[empty_cells] = (((pos.pos_y-1)*MATRIX_Y) + pos.pos_x-2);
+                    //array[empty_cells] = (((pos.pos_y-1)*MATRIX_Y) + pos.pos_x-2);
+                    array[empty_cells] = MATRIX_TO_ARRAY_CONVERSION((pos.pos_y-1), (pos.pos_x-2));
                     empty_cells++;
                 }
             } else {
                 ESP_LOG(WARN, TAG, "Y - 1 x - 2");
-                array[empty_cells] = (((pos.pos_y-1)*MATRIX_Y) + pos.pos_x-2);
+                //array[empty_cells] = (((pos.pos_y-1)*MATRIX_Y) + pos.pos_x-2);
+                array[empty_cells] = MATRIX_TO_ARRAY_CONVERSION((pos.pos_y-1), (pos.pos_x-2));
                 empty_cells++;
             }
         }
@@ -1012,7 +1083,7 @@ static esp_err_t bishop_led_calculation(figure_position_t pos, uint8_t **led_arr
 
     ESP_LOG(INFO, TAG, "Calculating diagonal moves for Bishop");
 
-    left_forward = required_cells_calculation_diagonal(board, pos, LEFT_MOD, FORWARD_MOD, 1, &attack_possible, &figures_ptr[*counter]);
+    left_forward = required_cells_calculation_diagonal(board, pos, LEFT_MOD, FORWARD_MOD, NO_LIMIT_FOR_MOVES, &attack_possible, &figures_ptr[*counter]);
     
     if (left_forward == POSITION_CALCULATION_ERROR) {
         if (figures_ptr){
@@ -1027,7 +1098,7 @@ static esp_err_t bishop_led_calculation(figure_position_t pos, uint8_t **led_arr
         attack_possible = false;
     }
 
-    left_backward = required_cells_calculation_diagonal(board, pos, LEFT_MOD, BACKWARD_MOD, 1, &attack_possible, &figures_ptr[*counter]);
+    left_backward = required_cells_calculation_diagonal(board, pos, LEFT_MOD, BACKWARD_MOD, NO_LIMIT_FOR_MOVES, &attack_possible, &figures_ptr[*counter]);
     if (left_backward == POSITION_CALCULATION_ERROR) {
         if (figures_ptr){
             ESP_LOG(WARN, TAG, "FREE");
@@ -1041,7 +1112,7 @@ static esp_err_t bishop_led_calculation(figure_position_t pos, uint8_t **led_arr
         attack_possible = false;
     }
     
-    right_forward = required_cells_calculation_diagonal(board, pos, RIGHT_MOD, FORWARD_MOD, 1, &attack_possible, &figures_ptr[*counter]);
+    right_forward = required_cells_calculation_diagonal(board, pos, RIGHT_MOD, FORWARD_MOD, NO_LIMIT_FOR_MOVES, &attack_possible, &figures_ptr[*counter]);
     if (right_forward == POSITION_CALCULATION_ERROR) {
         if (figures_ptr){
             ESP_LOG(WARN, TAG, "FREE");
@@ -1055,7 +1126,7 @@ static esp_err_t bishop_led_calculation(figure_position_t pos, uint8_t **led_arr
         attack_possible = false;
     }
 
-    right_backward = required_cells_calculation_diagonal(board, pos, RIGHT_MOD, BACKWARD_MOD, 1, &attack_possible, &figures_ptr[*counter]);
+    right_backward = required_cells_calculation_diagonal(board, pos, RIGHT_MOD, BACKWARD_MOD, NO_LIMIT_FOR_MOVES, &attack_possible, &figures_ptr[*counter]);
     if (right_backward == POSITION_CALCULATION_ERROR) {
         if (figures_ptr){
             ESP_LOG(WARN, TAG, "FREE");
@@ -1404,7 +1475,7 @@ static esp_err_t check_all_enemy_moves_for_pos(chess_board_t board, figure_posit
 }
 
 
-/*uint8_t calculate_diagonal_with_mods(chess_board_t board, figure_position_t pos, uint8_t hor_mod, uint8_t ver_mod, uint8_t limit) {
+uint8_t calculate_diagonal_with_mods(chess_board_t board, figure_position_t pos, int8_t hor_mod, int8_t ver_mod, uint8_t limit, bool *attack_possible, attackable_figures_t **figure, uint8_t *counter) {
     uint8_t result = 0;
     bool in_check = false;
     figure_position_t temp_pos;
@@ -1419,15 +1490,80 @@ static esp_err_t check_all_enemy_moves_for_pos(chess_board_t board, figure_posit
     chess_figures_t figure_type = FIGURE_END_LIST;
     figure_type = board.board[pos.pos_y][pos.pos_x].figure_type;
 
-    result = required_cells_calculation_diagonal(board, pos, hor_mod, ver_mod, 1, );
-    if (figure_type == FIGURE_KING && in_check && result != 0){
+    result = required_cells_calculation_diagonal(board, pos, hor_mod, ver_mod, limit, attack_possible, figure[*counter]); // TODO: not sure of this
+    if (figure_type == FIGURE_KING && in_check && result != 0 && limit == 1){
         temp_pos.pos_y = pos.pos_y + ver_mod;
         temp_pos.pos_x = pos.pos_x + hor_mod;
         ESP_LOG(INFO, TAG, "MODS: hor %d ver %d. Original: %d:%d temp modified: %d:%d", hor_mod, ver_mod, pos.pos_y, pos.pos_x, temp_pos.pos_y, temp_pos.pos_x);
-        check_all_enemy_moves_for_pos(board, temp_pos);
+        if (check_all_enemy_moves_for_pos(board, temp_pos) == ESP_ERR_NO_MEM){
+            ESP_LOG(INFO, TAG, "No possible attacks for pos %d:%d", temp_pos.pos_y, temp_pos.pos_x);
+            result = 0;
+        }
     }
     return result;
-}*/
+}
+
+static uint8_t calculate_horisontal_with_mods(chess_board_t board, figure_position_t pos, uint8_t hor_mod, uint8_t limit, bool *attack_possible, attackable_figures_t **figure, uint8_t *counter){
+
+    uint8_t result = 0;
+    bool in_check = false;
+    figure_position_t temp_pos;
+
+    if (access_lock()){
+        in_check = local_data.check;
+        release_lock();
+    } else {
+        ESP_LOG(ERROR, TAG, "Can't access lock to get the check status");
+    }
+
+    chess_figures_t figure_type = FIGURE_END_LIST;
+    figure_type = board.board[pos.pos_y][pos.pos_x].figure_type;
+
+    // TODO: not sure of this
+    result = required_cells_calculation_horisontal(board, pos, hor_mod, limit, attack_possible, figure[*counter]);
+    if (figure_type == FIGURE_KING && in_check && result != 0 && limit == 1){
+        temp_pos.pos_y = pos.pos_y;
+        temp_pos.pos_x = pos.pos_x + hor_mod;
+        ESP_LOG(INFO, TAG, "MODS: hor %d ver %d. Original: %d:%d temp modified: %d:%d", hor_mod, 1, pos.pos_y, pos.pos_x, temp_pos.pos_y, temp_pos.pos_x);
+        if (check_all_enemy_moves_for_pos(board, temp_pos) == ESP_ERR_NO_MEM){
+            ESP_LOG(INFO, TAG, "No possible attacks for pos %d:%d", temp_pos.pos_y, temp_pos.pos_x);
+            result = 0;
+        }
+    }
+    return result;
+
+}
+
+static uint8_t calculate_vertical_with_mods(chess_board_t board, figure_position_t pos, uint8_t ver_mod, uint8_t limit, bool *attack_possible, attackable_figures_t **figure, uint8_t *counter){
+
+    uint8_t result = 0;
+    bool in_check = false;
+    figure_position_t temp_pos;
+
+    if (access_lock()){
+        in_check = local_data.check;
+        release_lock();
+    } else {
+        ESP_LOG(ERROR, TAG, "Can't access lock to get the check status");
+    }
+
+    chess_figures_t figure_type = FIGURE_END_LIST;
+    figure_type = board.board[pos.pos_y][pos.pos_x].figure_type;
+
+    // TODO: not sure of this
+    result = required_cells_calculation_vertical(board, pos, ver_mod, limit, attack_possible, figure[*counter]);
+    if (figure_type == FIGURE_KING && in_check && result != 0 && limit == 1){
+        temp_pos.pos_y = pos.pos_y + ver_mod;
+        temp_pos.pos_x = pos.pos_x;
+        ESP_LOG(INFO, TAG, "MODS: hor %d ver %d. Original: %d:%d temp modified: %d:%d", 1, ver_mod, pos.pos_y, pos.pos_x, temp_pos.pos_y, temp_pos.pos_x);
+        if (check_all_enemy_moves_for_pos(board, temp_pos) == ESP_ERR_NO_MEM){
+            ESP_LOG(INFO, TAG, "No possible attacks for pos %d:%d", temp_pos.pos_y, temp_pos.pos_x);
+            result = 0;
+        }
+    }
+    return result;
+
+}
 
 esp_err_t king_led_calculations(figure_position_t pos, uint8_t **led_array_ptr, uint8_t *counter) {
 
@@ -1460,7 +1596,9 @@ esp_err_t king_led_calculations(figure_position_t pos, uint8_t **led_array_ptr, 
 
     ESP_LOG(INFO, TAG, "Calculating diagonal moves for king");
 
-    left_forward = required_cells_calculation_diagonal(board, pos, LEFT_MOD, FORWARD_MOD, 1, &attack_possible, &figures_ptr[*counter]);
+    left_forward = calculate_diagonal_with_mods(board, pos, LEFT_MOD, FORWARD_MOD, 1, &attack_possible, &figures_ptr, counter);
+
+    //left_forward = required_cells_calculation_diagonal(board, pos, LEFT_MOD, FORWARD_MOD, 1, &attack_possible, &figures_ptr[*counter]);
     
     if (left_forward == POSITION_CALCULATION_ERROR) {
         if (figures_ptr){
@@ -1475,7 +1613,9 @@ esp_err_t king_led_calculations(figure_position_t pos, uint8_t **led_array_ptr, 
         attack_possible = false;
     }
 
-    left_backward = required_cells_calculation_diagonal(board, pos, LEFT_MOD, BACKWARD_MOD, 1, &attack_possible, &figures_ptr[*counter]);
+    left_backward = calculate_diagonal_with_mods(board, pos, LEFT_MOD, BACKWARD_MOD, 1, &attack_possible, &figures_ptr, counter);
+
+    //left_backward = required_cells_calculation_diagonal(board, pos, LEFT_MOD, BACKWARD_MOD, 1, &attack_possible, &figures_ptr[*counter]);
     if (left_backward == POSITION_CALCULATION_ERROR) {
         if (figures_ptr){
             ESP_LOG(WARN, TAG, "FREE");
@@ -1489,7 +1629,9 @@ esp_err_t king_led_calculations(figure_position_t pos, uint8_t **led_array_ptr, 
         attack_possible = false;
     }
     
-    right_forward = required_cells_calculation_diagonal(board, pos, RIGHT_MOD, FORWARD_MOD, 1, &attack_possible, &figures_ptr[*counter]);
+    right_forward = calculate_diagonal_with_mods(board, pos, RIGHT_MOD, FORWARD_MOD, 1, &attack_possible, &figures_ptr, counter);
+
+    //right_forward = required_cells_calculation_diagonal(board, pos, RIGHT_MOD, FORWARD_MOD, 1, &attack_possible, &figures_ptr[*counter]);
     if (right_forward == POSITION_CALCULATION_ERROR) {
         if (figures_ptr){
             ESP_LOG(WARN, TAG, "FREE");
@@ -1503,7 +1645,9 @@ esp_err_t king_led_calculations(figure_position_t pos, uint8_t **led_array_ptr, 
         attack_possible = false;
     }
 
-    right_backward = required_cells_calculation_diagonal(board, pos, RIGHT_MOD, BACKWARD_MOD, 1,  &attack_possible, &figures_ptr[*counter]);
+    right_backward = calculate_diagonal_with_mods(board, pos, RIGHT_MOD, BACKWARD_MOD, 1, &attack_possible, &figures_ptr, counter);
+
+    //right_backward = required_cells_calculation_diagonal(board, pos, RIGHT_MOD, BACKWARD_MOD, 1,  &attack_possible, &figures_ptr[*counter]);
     if (right_backward == POSITION_CALCULATION_ERROR) {
         if (figures_ptr){
             ESP_LOG(WARN, TAG, "FREE");
@@ -1533,8 +1677,10 @@ esp_err_t king_led_calculations(figure_position_t pos, uint8_t **led_array_ptr, 
 
     
 
-    forward_cells = required_cells_calculation_vertical(board, pos, FORWARD_MOD, 1, &attack_possible, &figures_ptr[*counter]);
+    //forward_cells = required_cells_calculation_vertical(board, pos, FORWARD_MOD, 1, &attack_possible, &figures_ptr[*counter]);
     
+    forward_cells = calculate_vertical_with_mods(board, pos, FORWARD_MOD, 1, &attack_possible, &figures_ptr, counter);
+
     if (forward_cells == POSITION_CALCULATION_ERROR) {
         if (figures_ptr){
             ESP_LOG(WARN, TAG, "FREE");
@@ -1548,7 +1694,9 @@ esp_err_t king_led_calculations(figure_position_t pos, uint8_t **led_array_ptr, 
         attack_possible = false;
     }
 
-    backward_cells = required_cells_calculation_vertical(board, pos, BACKWARD_MOD, 1, &attack_possible, &figures_ptr[*counter]);
+    backward_cells = calculate_vertical_with_mods(board, pos, BACKWARD_MOD, 1, &attack_possible, &figures_ptr, counter);
+
+    //backward_cells = required_cells_calculation_vertical(board, pos, BACKWARD_MOD, 1, &attack_possible, &figures_ptr[*counter]);
     
     if (backward_cells == POSITION_CALCULATION_ERROR) {
         if (figures_ptr){
@@ -1563,8 +1711,10 @@ esp_err_t king_led_calculations(figure_position_t pos, uint8_t **led_array_ptr, 
         attack_possible = false;
     }
 
-    right_cells = required_cells_calculation_horisontal(board, pos, RIGHT_MOD, 1, &attack_possible, &figures_ptr[*counter]);
+    //right_cells = required_cells_calculation_horisontal(board, pos, RIGHT_MOD, 1, &attack_possible, &figures_ptr[*counter]);
     
+    right_cells = calculate_horisontal_with_mods(board, pos, RIGHT_MOD, 1, &attack_possible, &figures_ptr, counter);
+
     if (right_cells == POSITION_CALCULATION_ERROR) {
         if (figures_ptr){
             ESP_LOG(WARN, TAG, "FREE");
@@ -1578,7 +1728,8 @@ esp_err_t king_led_calculations(figure_position_t pos, uint8_t **led_array_ptr, 
         attack_possible = false;
     }
 
-    left_cells = required_cells_calculation_horisontal(board, pos, LEFT_MOD, 1, &attack_possible, &figures_ptr[*counter]);
+    //left_cells = required_cells_calculation_horisontal(board, pos, LEFT_MOD, 1, &attack_possible, &figures_ptr[*counter]);#
+    left_cells = calculate_horisontal_with_mods(board, pos, LEFT_MOD, 1, &attack_possible, &figures_ptr, counter);
 
     if (left_cells == POSITION_CALCULATION_ERROR) {
         if (figures_ptr){
@@ -1695,7 +1846,7 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
                     ESP_LOG(WARN, TAG, "Checking type %d on pos %d:%d", local_data.current_attackable->figure, local_data.current_attackable->pos.pos_y,local_data.current_attackable->pos.pos_x);
                     if (local_data.current_attackable->figure == FIGURE_KING){
                         if (check_calculations){
-                            ESP_LOG(WARN, TAG, "King under possible attack");
+                            ESP_LOG(WARN, TAG, "King under possible attack from rook");
 
                              if (led_array_ptr){
                                 ESP_LOG(WARN, TAG, "FREE led_array_ptr");
@@ -1727,7 +1878,7 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
                     ESP_LOG(WARN, TAG, "Checking type %d on pos %d:%d", local_data.current_attackable->figure, local_data.current_attackable->pos.pos_y,local_data.current_attackable->pos.pos_x);
                     if (local_data.current_attackable->figure == FIGURE_KING){
                         if (check_calculations){
-                            ESP_LOG(WARN, TAG, "King under possible attack");
+                            ESP_LOG(WARN, TAG, "King under possible attack from bishop");
 
                              if (led_array_ptr){
                                 ESP_LOG(WARN, TAG, "FREE led_array_ptr");
@@ -1753,7 +1904,7 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
                     ESP_LOG(WARN, TAG, "Checking type %d on pos %d:%d", local_data.current_attackable->figure, local_data.current_attackable->pos.pos_y,local_data.current_attackable->pos.pos_x);
                     if (local_data.current_attackable->figure == FIGURE_KING){
                         if (check_calculations){
-                            ESP_LOG(WARN, TAG, "King under possible attack");
+                            ESP_LOG(WARN, TAG, "King under possible attack from queen");
 
                              if (led_array_ptr){
                                 ESP_LOG(WARN, TAG, "FREE led_array_ptr");
@@ -1783,9 +1934,11 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
                 ESP_LOG(WARN, TAG, "attackable counter %d", local_data.counter_attackable);
                 for (int i = 0; i < local_data.counter_attackable; i++) {
                     ESP_LOG(WARN, TAG, "Checking type %d on pos %d:%d", local_data.current_attackable->figure, local_data.current_attackable->pos.pos_y,local_data.current_attackable->pos.pos_x);
+                    
+                    // TODO: this is probably unneeded for king.
                     if (local_data.current_attackable->figure == FIGURE_KING){
                         if (check_calculations){
-                            ESP_LOG(WARN, TAG, "King under possible attack");
+                            ESP_LOG(WARN, TAG, "King under possible attack from king? Check TODO");
 
                              if (led_array_ptr){
                                 ESP_LOG(WARN, TAG, "FREE led_array_ptr");

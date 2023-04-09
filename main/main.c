@@ -34,7 +34,7 @@
 #define VERSION_NUMBER_X 0
 #define VERSION_NUMBER_Y 2
 
-#define LED_TEST
+//#define LED_TEST
 
 typedef struct local_data {
 

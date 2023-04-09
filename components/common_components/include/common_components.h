@@ -31,7 +31,7 @@ ESP_EVENT_DECLARE_BASE(TEST_EVENTS);
 #ifdef CONFIG_BREADBOARD_LED_SETUP
 #define MATRIX_TO_ARRAY_CONVERSION(pos_y, pos_x) (pos_y * MATRIX_Y + pos_x)
 #else
-#define MATRIX_TO_ARRAY_CONVERSION(pos_y, pos_x) (pos_y % 2 == 0) ? (pos_y * MATRIX_Y + pos_x) : (pos_y * MATRIX_Y + (MATRIX_X - pos_x - 1))
+#define MATRIX_TO_ARRAY_CONVERSION(pos_y, pos_x) (pos_y % 2 == 0) ? ((pos_y * MATRIX_Y) + pos_x) : (pos_y * MATRIX_Y + (MATRIX_X - pos_x - 1))
 #endif
 
 
