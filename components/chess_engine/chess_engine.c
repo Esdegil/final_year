@@ -73,7 +73,7 @@ esp_err_t chess_engine_init(){
     }
 
 
-    xTaskCreate(chess_engine_task, TASK_NAME, configMINIMAL_STACK_SIZE*3, &params, tskIDLE_PRIORITY, &local_data.task_handle);
+    xTaskCreate(chess_engine_task, TASK_NAME, configMINIMAL_STACK_SIZE*4, &params, tskIDLE_PRIORITY, &local_data.task_handle);
 
     if (local_data.task_handle == NULL){
         ESP_LOG(ERROR, TAG, "Failed to create task: %s. Aborting.", TASK_NAME);
@@ -97,7 +97,7 @@ esp_err_t chess_engine_init(){
         local_data.board.white_turn = true;
 
     // White figures init
-        local_data.board.board[0][3].figure_type = FIGURE_END_LIST;
+        local_data.board.board[0][3].figure_type = FIGURE_KING;
         local_data.board.board[0][0].figure_type = FIGURE_END_LIST;
         local_data.board.board[0][1].figure_type = FIGURE_ROOK;
         local_data.board.board[0][2].figure_type = FIGURE_END_LIST;
@@ -125,8 +125,8 @@ esp_err_t chess_engine_init(){
         
 
     // Black figures init
-        local_data.board.board[3][0].figure_type = FIGURE_KING;
-        local_data.board.board[3][1].figure_type = FIGURE_PAWN;
+        local_data.board.board[3][0].figure_type = FIGURE_END_LIST;
+        local_data.board.board[3][1].figure_type = FIGURE_KING;
         local_data.board.board[3][2].figure_type = FIGURE_END_LIST;
         local_data.board.board[3][3].figure_type = FIGURE_END_LIST;
 
@@ -179,20 +179,26 @@ esp_err_t chess_engine_init(){
             }
         }
 
-        local_data.board.board[1][0].figure_type = FIGURE_KNIGHT;
+        local_data.board.board[1][0].figure_type = FIGURE_QUEEN;
 
         local_data.board.board[1][0].white = true;
 
         local_data.board.board[1][0].led_op = &led_op_pawn;
 
 
+        local_data.board.board[2][1].figure_type = FIGURE_ROOK;
+
+        local_data.board.board[2][1].white = false;
+
+        local_data.board.board[2][1].led_op = &led_op_pawn;
+
+        
         local_data.board.board[2][3].figure_type = FIGURE_BISHOP;
 
         local_data.board.board[2][3].white = false;
 
         local_data.board.board[2][3].led_op = &led_op_pawn;
 
-        
 
     }
 
@@ -427,8 +433,8 @@ static uint8_t required_cells_calculation_vertical(chess_board_t board, figure_p
 
             
 
-            if(board.board[pos.pos_y + adj_modified_y][pos.pos_x].white != board.board[pos.pos_y][pos.pos_x].white){
-                ESP_LOG(WARN, TAG, "Enemy figure adjacent");
+            if(board.board[adj_modified_y][pos.pos_x].white != board.board[pos.pos_y][pos.pos_x].white){ // TODO: made changes in adj_modified_y was posy + adj_modified_y
+                ESP_LOG(WARN, TAG, "Enemy figure colour %s adjacent on pos %d:%d", board.board[adj_modified_y][pos.pos_x].white ? "white" : "black", adj_modified_y, pos.pos_x);
                 required_cells++;
 
                 *attack_possible = true;
@@ -1462,7 +1468,13 @@ static esp_err_t check_all_enemy_moves_for_pos(chess_board_t board, figure_posit
 
         for (uint8_t j = 0; j < MATRIX_X; j++){
 
-            if (board.board[i][j].figure_type != FIGURE_END_LIST && board.board[i][j].white == white){
+            if (board.board[i][j].figure_type != FIGURE_END_LIST && board.board[i][j].white == white){ // TODO: maybe do this easy to read
+                
+                if (board.board[i][j].figure_type == FIGURE_KING){
+                    ESP_LOG(ERROR, TAG, "NOT CALCULATING FOR KING. DOUBLE CHECK IT");
+                    continue;
+                }
+                
                 temp_pos.pos_y = i;
                 temp_pos.pos_x = j;
                 ESP_LOG(WARN, TAG, "Checking for pos %d:%d", temp_pos.pos_y, temp_pos.pos_x);
@@ -1864,7 +1876,7 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
                 ESP_LOG(WARN, TAG, "attackable counter %d", local_data.counter_attackable);
                 for (int i = 0; i < local_data.counter_attackable; i++) {
                     ESP_LOG(WARN, TAG, "Checking type %d on pos %d:%d", local_data.current_attackable[i].figure, local_data.current_attackable[i].pos.pos_y,local_data.current_attackable[i].pos.pos_x);
-                    if (local_data.current_attackable[i].figure == FIGURE_KING){
+                    if (local_data.current_attackable[i].figure == FIGURE_KING ){
                         if (check_calculations){
                             ESP_LOG(WARN, TAG, "King under possible attack from rook");
 
@@ -2024,6 +2036,26 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
     return ESP_OK;
 }
 
+static figure_position_t find_king_by_colour(chess_board_t board, bool white){
+    figure_position_t king_pos;
+
+    king_pos.pos_y = MATRIX_Y;
+    king_pos.pos_x = MATRIX_X;
+
+    for (int i = 0; i < MATRIX_Y; i++){
+        for (int j = 0; j < MATRIX_X; j++){
+            if (board.board[i][j].figure_type == FIGURE_KING && board.board[i][j].white == white){
+                ESP_LOG(INFO, TAG, "Found %s king at pos %d:%d", white ? "white" : "black", i, j);
+                king_pos.pos_y = i;
+                king_pos.pos_x = j;
+            }
+        }
+    }
+
+    return king_pos;
+
+}
+
 static void chess_engine_task(void *args){
 
     
@@ -2049,6 +2081,10 @@ static void chess_engine_task(void *args){
     bool last_figure_valid_colour = false;
 
     bool check = false;
+
+    figure_position_t temp_pos;
+    temp_pos.pos_y = MATRIX_Y;
+    temp_pos.pos_x = MATRIX_X;
 
     while(1){
 
@@ -2102,7 +2138,29 @@ static void chess_engine_task(void *args){
                         } else {
 
                             if (valid_colour_for_turn) {
-                                required_leds_calculation(change_data.pos, CALCULATIONS_WITH_LEDS, false);
+
+                                local_data.board.board[temp_pos.pos_y][temp_pos.pos_x] = local_data.board.board[change_data.pos.pos_y][change_data.pos.pos_x];
+                                local_data.board.board[change_data.pos.pos_y][change_data.pos.pos_x].led_op = NULL;
+                                local_data.board.board[change_data.pos.pos_y][change_data.pos.pos_x].figure_type = FIGURE_END_LIST;
+                                
+                                
+                                if (check_all_enemy_moves_for_pos(board, find_king_by_colour(board, local_data.board.white_turn)) == ESP_ERR_NO_MEM){
+                                    ESP_LOG(WARN, TAG, "Can't move this figure because it'll cause a checkmate");
+                                    local_data.board.board[change_data.pos.pos_y][change_data.pos.pos_x] = local_data.board.board[temp_pos.pos_y][temp_pos.pos_x];
+                                    local_data.board.board[temp_pos.pos_y][temp_pos.pos_x].led_op = NULL;
+                                    local_data.board.board[temp_pos.pos_y][temp_pos.pos_x].figure_type = FIGURE_END_LIST;
+                                    led_no_move_possible(MATRIX_TO_ARRAY_CONVERSION(change_data.pos.pos_y, change_data.pos.pos_x));
+                                    
+                                } else {
+                                    ESP_LOG(INFO, TAG, "Moving this figure %d:%d won't cause immediate checkmate", change_data.pos.pos_y, change_data.pos.pos_x);
+                                    local_data.board.board[change_data.pos.pos_y][change_data.pos.pos_x] = local_data.board.board[temp_pos.pos_y][temp_pos.pos_x];
+                                    local_data.board.board[temp_pos.pos_y][temp_pos.pos_x].led_op = NULL;
+                                    local_data.board.board[temp_pos.pos_y][temp_pos.pos_x].figure_type = FIGURE_END_LIST;
+                                    required_leds_calculation(change_data.pos, CALCULATIONS_WITH_LEDS, false);
+
+                                }
+
+                                
                                 
                             } else {
                                 ESP_LOG(WARN, TAG, "Here1");
@@ -2126,10 +2184,13 @@ static void chess_engine_task(void *args){
                                         
                                 ESP_LOG(WARN, TAG, "Figure was moved from %d:%d to %d:%d", local_data.last_change_data.pos.pos_y, local_data.last_change_data.pos.pos_x, change_data.pos.pos_y, change_data.pos.pos_x);
                                         
-                                required_leds_calculation(change_data.pos, CALCULATIONS_WITHOUT_LEDS, false);
+                                required_leds_calculation(change_data.pos, CALCULATIONS_WITHOUT_LEDS, false); // TODO: why this is here?
 
                                 local_data.board.white_turn = !local_data.board.white_turn; // Changing turns
                                 ESP_LOG(INFO, TAG, "%s turn now!", local_data.board.white_turn ? "white" : "black");
+
+                                led_clear_stripe();
+
                             } else {
                                 ESP_LOG(WARN, TAG, "Here2");
                                 ESP_LOG(ERROR, TAG, "Not %s turn", board.board[change_data.pos.pos_y][change_data.pos.pos_x].white ? "white" : "black");

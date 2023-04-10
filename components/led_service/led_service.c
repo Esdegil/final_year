@@ -327,9 +327,13 @@ esp_err_t led_clear_stripe(){
 
         if (!led_strip_clear(&local_data.led_strip)){
             ESP_LOG(ERROR, TAG, "Failed to clear the stripe");
+        } else {
+            ESP_LOG(INFO, TAG, "Cleared strip successfully");
         }
+        led_strip_show(&local_data.led_strip);
 
         if (!release_lock()){
+            
             return ESP_FAIL;
         } else {
             ret = ESP_OK;
