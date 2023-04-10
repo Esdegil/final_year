@@ -521,12 +521,12 @@ static uint8_t required_cells_calculation_horisontal(chess_board_t board, figure
 
             
 
-            if(board.board[pos.pos_y][pos.pos_x + adj_modified_x].white != board.board[pos.pos_y][pos.pos_x].white){
+            if(board.board[pos.pos_y][adj_modified_x].white != board.board[pos.pos_y][pos.pos_x].white){
                 ESP_LOG(WARN, TAG, "Enemy figure adjacent");
                 required_cells++;
                 *attack_possible = true;
                 figure->pos.pos_y = pos.pos_y;
-                figure->pos.pos_x = pos.pos_x + adj_modified_x;
+                figure->pos.pos_x = adj_modified_x;
                 figure->figure = board.board[figure->pos.pos_y][figure->pos.pos_x].figure_type;
             }
 
@@ -2210,6 +2210,8 @@ static void chess_engine_task(void *args){
                             local_data.board.white_turn = !local_data.board.white_turn; // Changing turns
                             ESP_LOG(INFO, TAG, "%s turn now!", local_data.board.white_turn ? "white" : "black");
                             attacking = false;
+
+                            led_clear_stripe();
 
                         } else if (last_figure_lifted) { // not attacking but new put down and old lifted
                             
