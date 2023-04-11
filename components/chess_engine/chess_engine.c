@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include "chess_engine.h"
 
 
@@ -40,6 +41,9 @@ typedef struct local_data{
     uint8_t counter_attackable;
 
     figure_position_t possible_king_move;
+
+    uint8_t *check_trajectory;
+    uint8_t trajectory_counter;
 
     bool check;
 
@@ -99,8 +103,8 @@ esp_err_t chess_engine_init(){
     // White figures init
         local_data.board.board[0][3].figure_type = FIGURE_KING;
         local_data.board.board[0][0].figure_type = FIGURE_END_LIST;
-        local_data.board.board[0][1].figure_type = FIGURE_ROOK;
-        local_data.board.board[0][2].figure_type = FIGURE_END_LIST;
+        local_data.board.board[0][1].figure_type = FIGURE_END_LIST;
+        local_data.board.board[0][2].figure_type = FIGURE_ROOK;
 
         local_data.board.board[0][0].white = true;
         local_data.board.board[0][1].white = true;
@@ -125,8 +129,8 @@ esp_err_t chess_engine_init(){
         
 
     // Black figures init
-        local_data.board.board[3][0].figure_type = FIGURE_END_LIST;
-        local_data.board.board[3][1].figure_type = FIGURE_KING;
+        local_data.board.board[3][0].figure_type = FIGURE_KING;
+        local_data.board.board[3][1].figure_type = FIGURE_END_LIST;
         local_data.board.board[3][2].figure_type = FIGURE_END_LIST;
         local_data.board.board[3][3].figure_type = FIGURE_END_LIST;
 
@@ -191,6 +195,13 @@ esp_err_t chess_engine_init(){
         local_data.board.board[2][1].white = false;
 
         local_data.board.board[2][1].led_op = &led_op_pawn;
+
+
+        local_data.board.board[2][0].figure_type = FIGURE_ROOK;
+
+        local_data.board.board[2][0].white = false;
+
+        local_data.board.board[2][0].led_op = &led_op_pawn;
 
         
         local_data.board.board[2][3].figure_type = FIGURE_BISHOP;
@@ -1453,7 +1464,26 @@ static esp_err_t check_all_enemy_moves_for_pos(chess_board_t board, figure_posit
     // TODO: assuming .white_turn is correct. Double check that later.
     bool white = false;
     white = !board.white_turn;
+
+    bool in_check = false;
+    uint8_t check_figure = 0;
    
+    if (access_lock()){
+        in_check = local_data.check;
+        if (in_check){
+            if (local_data.check_trajectory){
+                check_figure = local_data.check_trajectory[local_data.trajectory_counter];
+            } else {
+                ESP_LOG(ERROR, TAG, "check_trajectory is NULL in check_all_enemy_moves_for_pos in check conditions");
+                release_lock();
+                return ESP_FAIL;
+            }
+        }
+        release_lock();
+    } else {
+        return ESP_FAIL;
+    }
+
     //uint8_t total_figures = count_figures_on_board_by_colour(board, white);
 
     figure_position_t temp_pos;
@@ -1475,6 +1505,14 @@ static esp_err_t check_all_enemy_moves_for_pos(chess_board_t board, figure_posit
                     continue;
                 }
                 
+                if (in_check) {
+                    if (check_figure == MATRIX_TO_ARRAY_CONVERSION(i, j)){
+                        ESP_LOG(INFO, TAG, "Found attacking figure at %d:%d array %d", i, j, MATRIX_TO_ARRAY_CONVERSION(i, j));
+                        ESP_LOG(INFO, TAG, "Skipping this figure");
+                        continue;
+                    }
+                }
+
                 temp_pos.pos_y = i;
                 temp_pos.pos_x = j;
                 ESP_LOG(WARN, TAG, "Checking for pos %d:%d", temp_pos.pos_y, temp_pos.pos_x);
@@ -1844,13 +1882,17 @@ esp_err_t king_led_calculations(figure_position_t pos, uint8_t **led_array_ptr, 
 }
 
 
+
+
 // TODO: refactor this so showing leds would depend on that bool
 static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool show_leds, bool check_calculations){
     
     chess_figures_t current_figure;
+    bool check = false;
 
     if (access_lock()){
         current_figure = local_data.board.board[updated_pos.pos_y][updated_pos.pos_x].figure_type;
+        check = local_data.check;
         release_lock();
     } else {
         return ESP_FAIL;
@@ -1859,7 +1901,10 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
     uint8_t *led_array_ptr = NULL;
     uint8_t counter = 0;
 
+    bool check_happened_this_turn = false;
+
     esp_err_t ret = ESP_FAIL;
+    uint8_t traj_counter = 0;
 
     // TODO: add error handling
     switch (current_figure){ // TODO: update all the functions the same way as with rook
@@ -1887,9 +1932,80 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
                             }
                             return ESP_ERR_NO_MEM;
 
+                            
                         }
                         ESP_LOG(WARN, TAG, "King under attack");
                         local_data.check = true;
+                        check_happened_this_turn = true;
+
+                        
+                        int8_t mod_x = 0;
+                        int8_t mod_y = 0;
+                        
+                        figure_position_t king_pos = local_data.current_attackable[i].pos;
+
+                        if (king_pos.pos_y > updated_pos.pos_y){
+                            mod_y = FORWARD_MOD;
+                        } else if (king_pos.pos_y < updated_pos.pos_y) {
+                            mod_y = BACKWARD_MOD;
+                        }
+
+                        if (king_pos.pos_x > updated_pos.pos_x){
+                            mod_x = RIGHT_MOD;
+                        } else if (king_pos.pos_x < updated_pos.pos_x) {
+                            mod_x = LEFT_MOD;
+                        }
+
+                        uint8_t *modified_led_array_ptr = NULL;
+
+                        if (mod_y != 0){
+                            for (int j = updated_pos.pos_y+1; j != king_pos.pos_y; j += mod_y){
+                                ESP_LOG(WARN, TAG, "REALLOC");
+                                modified_led_array_ptr = (uint8_t*)realloc(modified_led_array_ptr, ((traj_counter+1)*(sizeof(uint8_t))));
+                                //led_array_ptr[traj_counter] = MATRIX_TO_ARRAY_CONVERSION(j, (updated_pos.pos_x));
+                                modified_led_array_ptr[traj_counter] = MATRIX_TO_ARRAY_CONVERSION(j, (updated_pos.pos_x));
+                                // TODO: add realloc checks
+                                traj_counter++;
+                            }
+                        } else if (mod_x != 0){
+                            for (int j = updated_pos.pos_x+1; j != king_pos.pos_x; j += mod_x){
+                                //led_array_ptr[traj_counter] = MATRIX_TO_ARRAY_CONVERSION((updated_pos.pos_y), j);
+                                ESP_LOG(WARN, TAG, "REALLOC");
+                                modified_led_array_ptr = (uint8_t*)realloc(modified_led_array_ptr, ((traj_counter+1)*(sizeof(uint8_t))));
+                                modified_led_array_ptr[traj_counter] = MATRIX_TO_ARRAY_CONVERSION((updated_pos.pos_y), j);
+                                traj_counter++;
+                            }
+                        }
+
+                        if (local_data.check_trajectory){
+                            ESP_LOG(ERROR, TAG, "local_data.check_trajectory is not null.");
+                            free(local_data.check_trajectory);
+                            local_data.check_trajectory = NULL;
+                        }
+
+                        ESP_LOG(WARN, TAG, "REALLOC");
+                        modified_led_array_ptr = (uint8_t *)realloc(modified_led_array_ptr, ((counter+1) * sizeof(uint8_t))); 
+                        traj_counter++;
+
+                        for (int j = 0; j < traj_counter; j++){
+                            ESP_LOG(INFO, TAG, "Mod led array ptr %d", modified_led_array_ptr[j]);
+                        }
+
+
+                        if (!modified_led_array_ptr){
+                            ESP_LOG(ERROR, TAG, "Failed to reallocate memory on check");
+                            return ESP_FAIL; // TODO: dobule check
+                        }
+                        modified_led_array_ptr[traj_counter] = MATRIX_TO_ARRAY_CONVERSION((updated_pos.pos_y), (updated_pos.pos_x));
+                        ESP_LOG(WARN, TAG, "Added %d or %d:%d to led_array_ptr", MATRIX_TO_ARRAY_CONVERSION((updated_pos.pos_y), (updated_pos.pos_x)), updated_pos.pos_y, updated_pos.pos_x);
+
+                        memcpy(&local_data.check_trajectory, &modified_led_array_ptr, (counter * (sizeof(uint8_t))));
+
+                        ESP_LOG(DEBUG, TAG, "Past memcpy");
+                        local_data.trajectory_counter = traj_counter;
+
+                        break;
+
                     }
 
                     
@@ -2002,7 +2118,7 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
             if (led_array_ptr[i] == possible_move_converted) {
                 ESP_LOG(ERROR, TAG, "Gentelmen, we found him");
                 ESP_LOG(INFO, TAG, "Led array i %d", led_array_ptr[i]);
-                ESP_LOG(WARN, TAG, "King would be under possible attack from rook at %d:%d converted %d", local_data.possible_king_move.pos_y,local_data.possible_king_move.pos_x, MATRIX_TO_ARRAY_CONVERSION(local_data.possible_king_move.pos_y, local_data.possible_king_move.pos_x));
+                ESP_LOG(WARN, TAG, "King would be under possible attack at %d:%d converted %d", local_data.possible_king_move.pos_y,local_data.possible_king_move.pos_x, MATRIX_TO_ARRAY_CONVERSION(local_data.possible_king_move.pos_y, local_data.possible_king_move.pos_x));
 
                 if (led_array_ptr){
                     ESP_LOG(WARN, TAG, "FREE led_array_ptr");
@@ -2014,12 +2130,64 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
         }
     }
 
+
     if (show_leds) {
         ESP_LOG(INFO, TAG, "Showing LEDS");
         ESP_LOG(INFO, TAG, "Counter: %d", counter);
+
         if (!led_array_ptr){
-            ESP_LOG(ERROR, TAG, "Null ptr");
-        } else {
+            ESP_LOG(ERROR, TAG, "NULL ptr");
+        } else if (check){
+
+            ESP_LOG(INFO, TAG, "Check happened not this turn");
+
+            uint8_t traj_counter_paseed = local_data.trajectory_counter;
+
+            uint8_t valid_moves_counter = 0;
+
+            
+            for (int i = 0; i < counter; i++){
+                for (int j = 0; j < traj_counter_paseed; j++){
+
+                    if (local_data.check_trajectory[j] == led_array_ptr[i]){
+                        ESP_LOG(INFO, TAG, "This move %d will protect king from check", led_array_ptr[i]);
+                        led_array_ptr[valid_moves_counter] = led_array_ptr[i];
+                        valid_moves_counter++;
+                            
+                    }
+
+                }
+                
+            }
+            if (valid_moves_counter > 0){
+                
+                /*ESP_LOG(WARN, TAG, "MALLOC valid_moves_counter");
+                valid_moves_ptr = (uint8_t *)calloc(valid_moves_counter, sizeof(uint8_t));
+
+                if (!valid_moves_ptr){
+                    ESP_LOG(ERROR, TAG, "Failed to allocate memory under check conditions");
+                    if (led_array_ptr){
+                        free(led_array_ptr);
+                        led_array_ptr = NULL;
+                        return ESP_FAIL;
+                    }
+                    return ESP_FAIL;
+                }
+
+                for (int i = 0; i < valid_moves_counter; i++){
+                    valid_moves_ptr[i] = led_array_ptr[i];
+                }*/
+                
+
+                ESP_LOG(INFO, TAG, "Valid moves num %d", valid_moves_counter);
+                local_data.board.board[updated_pos.pos_y][updated_pos.pos_x].led_op(led_array_ptr, valid_moves_counter);
+
+            } else {
+                ESP_LOG(INFO, TAG, "No moves for this figure will protect king from check");
+                led_no_move_possible(MATRIX_TO_ARRAY_CONVERSION((updated_pos.pos_y), (updated_pos.pos_x)));
+            }
+        } else if (!check){
+        
             ESP_LOG(INFO, TAG, "Array 0 after returning from function %d", led_array_ptr[0]);
             local_data.board.board[updated_pos.pos_y][updated_pos.pos_x].led_op(led_array_ptr, counter);
         }
@@ -2028,10 +2196,12 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
     }
 
 
-    if (led_array_ptr){
-        ESP_LOG(WARN, TAG, "FREE led_array_ptr main");
-        free(led_array_ptr);
-        led_array_ptr = NULL;
+    if (!check_happened_this_turn){
+        if (led_array_ptr){
+            ESP_LOG(WARN, TAG, "FREE led_array_ptr main");
+            free(led_array_ptr);
+            led_array_ptr = NULL;
+        }
     }
     return ESP_OK;
 }
