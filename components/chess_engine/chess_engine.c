@@ -438,9 +438,9 @@ static uint8_t required_cells_calculation_vertical(chess_board_t board, figure_p
 
         if (adj_modified_y >= MATRIX_X){
             ESP_LOG(INFO, TAG, "out of x bounds");
-        } else if (board.board[pos.pos_y + adj_modified_y][pos.pos_x].figure_type != FIGURE_END_LIST){
+        } else if (board.board[adj_modified_y][pos.pos_x].figure_type != FIGURE_END_LIST){
 
-            ESP_LOG(DEBUG, TAG, "adj mod y:%d. Y position after mod applied %d",mod_y, pos.pos_y + adj_modified_y);
+            ESP_LOG(DEBUG, TAG, "adj mod y:%d. Y position after mod applied %d",mod_y, adj_modified_y);
 
             
 
@@ -526,9 +526,9 @@ static uint8_t required_cells_calculation_horisontal(chess_board_t board, figure
 
         if (adj_modified_x >= MATRIX_X){
             ESP_LOG(INFO, TAG, "out of x bounds");
-        } else if (board.board[pos.pos_y][pos.pos_x + adj_modified_x].figure_type != FIGURE_END_LIST){
+        } else if (board.board[pos.pos_y][adj_modified_x].figure_type != FIGURE_END_LIST){
 
-            ESP_LOG(DEBUG, TAG, "mod x:%d. X position after mod applied %d",mod_x, pos.pos_x + adj_modified_x);
+            ESP_LOG(DEBUG, TAG, "mod x:%d. X position after mod applied %d",mod_x, adj_modified_x);
 
             
 
@@ -2353,7 +2353,26 @@ static void chess_engine_task(void *args){
                                         
                                         
                                 ESP_LOG(WARN, TAG, "Figure was moved from %d:%d to %d:%d", local_data.last_change_data.pos.pos_y, local_data.last_change_data.pos.pos_x, change_data.pos.pos_y, change_data.pos.pos_x);
-                                        
+
+                                if (check){
+                                    if (!local_data.check_trajectory || local_data.trajectory_counter == 0){
+                                        ESP_LOG(ERROR, TAG, "Something went really wrong"); 
+                                        continue; // TODO: not sure what to do in this situation
+                                    }
+                                    uint8_t new_pos = 0;
+                                    new_pos = MATRIX_TO_ARRAY_CONVERSION((change_data.pos.pos_y), (change_data.pos.pos_x));    
+                                    for (int i = 0; i < local_data.trajectory_counter; i++){
+                                        if (local_data.check_trajectory[i] == new_pos){
+                                            ESP_LOG(WARN, TAG, "Check eliminated by moving here %d:%d converted %d", change_data.pos.pos_y, change_data.pos.pos_x, MATRIX_TO_ARRAY_CONVERSION((change_data.pos.pos_y), (change_data.pos.pos_x)));
+                                            local_data.check = false;
+                                            local_data.trajectory_counter = 0;
+                                            ESP_LOG(WARN, TAG, "FREE local_data.check_trajectory");
+                                            free(local_data.check_trajectory);
+                                            local_data.check_trajectory = NULL;
+                                            break;
+                                        }
+                                    }
+                                }
                                 required_leds_calculation(change_data.pos, CALCULATIONS_WITHOUT_LEDS, false); // TODO: why this is here?
 
                                 local_data.board.white_turn = !local_data.board.white_turn; // Changing turns
@@ -2375,6 +2394,27 @@ static void chess_engine_task(void *args){
                             local_data.board.board[attacking_figure_initial_position.pos_y][attacking_figure_initial_position.pos_x].figure_type = FIGURE_END_LIST;
                             local_data.board.board[attacking_figure_initial_position.pos_y][attacking_figure_initial_position.pos_x].led_op = NULL;
                             
+
+                            if (check){
+                                    if (!local_data.check_trajectory || local_data.trajectory_counter == 0){
+                                        ESP_LOG(ERROR, TAG, "Something went really wrong"); 
+                                        continue; // TODO: not sure what to do in this situation
+                                    }
+                                    uint8_t new_pos = 0;
+                                    new_pos = MATRIX_TO_ARRAY_CONVERSION((change_data.pos.pos_y), (change_data.pos.pos_x));    
+                                    for (int i = 0; i < local_data.trajectory_counter; i++){
+                                        if (local_data.check_trajectory[i] == new_pos){
+                                            ESP_LOG(WARN, TAG, "Check eliminated by attacking here %d:%d converted %d", change_data.pos.pos_y, change_data.pos.pos_x, MATRIX_TO_ARRAY_CONVERSION((change_data.pos.pos_y), (change_data.pos.pos_x)));
+                                            local_data.check = false;
+                                            local_data.trajectory_counter = 0;
+                                            ESP_LOG(WARN, TAG, "FREE local_data.check_trajectory");
+                                            free(local_data.check_trajectory);
+                                            local_data.check_trajectory = NULL;
+                                            break;
+                                        }
+                                    }
+                                }
+
                             required_leds_calculation(change_data.pos, CALCULATIONS_WITHOUT_LEDS, false);
 
                             local_data.board.white_turn = !local_data.board.white_turn; // Changing turns
