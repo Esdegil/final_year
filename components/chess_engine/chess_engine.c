@@ -191,33 +191,42 @@ esp_err_t chess_engine_init(){
             }
         }
 
-        local_data.board.board[1][0].figure_type = FIGURE_KNIGHT;
+        local_data.board.board[1][1].figure_type = FIGURE_ROOK;
 
-        local_data.board.board[1][0].white = true;
+        local_data.board.board[1][1].white = true;
 
-        local_data.board.board[1][0].led_op = &led_op_pawn;
+        local_data.board.board[1][1].led_op = &led_op_pawn;
+
+        /*
+        local_data.board.board[1][2].figure_type = FIGURE_ROOK;
+
+        local_data.board.board[1][2].white = true;
+
+        local_data.board.board[1][3].led_op = &led_op_pawn;
+        */
 
 
+        /*
         local_data.board.board[2][1].figure_type = FIGURE_ROOK;
 
         local_data.board.board[2][1].white = false;
 
         local_data.board.board[2][1].led_op = &led_op_pawn;
+        */
 
-
-        local_data.board.board[2][0].figure_type = FIGURE_ROOK;
+        local_data.board.board[2][0].figure_type = FIGURE_QUEEN;
 
         local_data.board.board[2][0].white = false;
 
         local_data.board.board[2][0].led_op = &led_op_pawn;
 
-        
+        /*
         local_data.board.board[2][3].figure_type = FIGURE_BISHOP;
 
         local_data.board.board[2][3].white = false;
 
         local_data.board.board[2][3].led_op = &led_op_pawn;
-
+        */
 
     }
 
@@ -850,7 +859,7 @@ static esp_err_t rook_led_calculation(figure_position_t pos, uint8_t **led_array
         (*counter)++;
         attack_possible = false;
     }
-    if (counter != 0) {
+    if (*counter != 0) {
         if (access_lock()){
 
             if (local_data.current_attackable){
@@ -871,6 +880,22 @@ static esp_err_t rook_led_calculation(figure_position_t pos, uint8_t **led_array
                 free(figures_ptr);
                 figures_ptr = NULL;
             }
+        }
+    } else {
+        if (access_lock()){
+            
+            ESP_LOG(WARN, TAG, "FREE local_data.current_attackable");
+            if (local_data.current_attackable) {
+                free(local_data.current_attackable);
+                local_data.current_attackable = NULL;
+            }
+            local_data.counter_attackable = 0;
+
+            release_lock();
+        } else {
+            ESP_LOG(ERROR, TAG, "Failed to access lock when freeing local_data.current_attackable");
+            local_data.counter_attackable = 0;
+            // TODO: return
         }
     }
 
@@ -1156,6 +1181,22 @@ static esp_err_t knight_led_calculation(figure_position_t pos, uint8_t **led_arr
                 figures_ptr = NULL;
             }
         }
+    } else {
+        if (access_lock()){
+            
+            ESP_LOG(WARN, TAG, "FREE local_data.current_attackable");
+            if (local_data.current_attackable) {
+                free(local_data.current_attackable);
+                local_data.current_attackable = NULL;
+            }
+            local_data.counter_attackable = 0;
+
+            release_lock();
+        } else {
+            ESP_LOG(ERROR, TAG, "Failed to access lock when freeing local_data.current_attackable");
+            local_data.counter_attackable = 0;
+            // TODO: return
+        }
     }
 
     ESP_LOG(INFO, TAG, "Calculated: %d", empty_cells);
@@ -1308,7 +1349,7 @@ static esp_err_t bishop_led_calculation(figure_position_t pos, uint8_t **led_arr
         attack_possible = false;
     }
 
-    if (counter != 0) {
+    if (*counter != 0) {
         if (access_lock()){
 
             if (local_data.current_attackable){
@@ -1329,6 +1370,22 @@ static esp_err_t bishop_led_calculation(figure_position_t pos, uint8_t **led_arr
                 free(figures_ptr);
                 figures_ptr = NULL;
             }
+        }
+    } else {
+        if (access_lock()){
+            
+            ESP_LOG(WARN, TAG, "FREE local_data.current_attackable");
+            if (local_data.current_attackable) {
+                free(local_data.current_attackable);
+                local_data.current_attackable = NULL;
+            }
+            local_data.counter_attackable = 0;
+
+            release_lock();
+        } else {
+            ESP_LOG(ERROR, TAG, "Failed to access lock when freeing local_data.current_attackable");
+            local_data.counter_attackable = 0;
+            // TODO: return
         }
     }
 
@@ -1521,7 +1578,7 @@ static esp_err_t queen_led_calculation(figure_position_t pos, uint8_t **led_arra
         attack_possible = false;
     }
 
-    if (counter != 0) {
+    if (*counter != 0) {
         if (access_lock()){
 
             if (local_data.current_attackable){
@@ -1530,9 +1587,11 @@ static esp_err_t queen_led_calculation(figure_position_t pos, uint8_t **led_arra
                 local_data.current_attackable = NULL;
                 
             }
-
+            ESP_LOG(WARN, TAG, "Rewriting local_data.counter_attackable and local_data.current_attackable");
             local_data.counter_attackable = *counter;
             local_data.current_attackable = figures_ptr;
+
+            ESP_LOG(INFO, TAG, "counter %d pos 0 type %d", local_data.counter_attackable, local_data.current_attackable[0].figure);
 
             release_lock();
         } else {
@@ -1542,6 +1601,22 @@ static esp_err_t queen_led_calculation(figure_position_t pos, uint8_t **led_arra
                 free(figures_ptr);
                 figures_ptr = NULL;
             }
+        }
+    } else {
+        if (access_lock()){
+            
+            ESP_LOG(WARN, TAG, "FREE local_data.current_attackable");
+            if (local_data.current_attackable) {
+                free(local_data.current_attackable);
+                local_data.current_attackable = NULL;
+            }
+            local_data.counter_attackable = 0;
+
+            release_lock();
+        } else {
+            ESP_LOG(ERROR, TAG, "Failed to access lock when freeing local_data.current_attackable");
+            local_data.counter_attackable = 0;
+            // TODO: return
         }
     }
 
@@ -1986,6 +2061,22 @@ esp_err_t king_led_calculations(figure_position_t pos, uint8_t **led_array_ptr, 
                 figures_ptr = NULL;
             }
         }
+    } else {
+        if (access_lock()){
+            
+            ESP_LOG(WARN, TAG, "FREE local_data.current_attackable");
+            if (local_data.current_attackable) {
+                free(local_data.current_attackable);
+                local_data.current_attackable = NULL;
+            }
+            local_data.counter_attackable = 0;
+
+            release_lock();
+        } else {
+            ESP_LOG(ERROR, TAG, "Failed to access lock when freeing local_data.current_attackable");
+            local_data.counter_attackable = 0;
+            // TODO: return
+        }
     }
 
     uint8_t total_direct = forward_cells + backward_cells + right_cells + left_cells;
@@ -2376,8 +2467,8 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
             if (local_data.counter_attackable != 0){
                 ESP_LOG(WARN, TAG, "attackable counter %d", local_data.counter_attackable);
                 for (int i = 0; i < local_data.counter_attackable; i++) {
-                    ESP_LOG(WARN, TAG, "Checking type %d on pos %d:%d", local_data.current_attackable->figure, local_data.current_attackable->pos.pos_y,local_data.current_attackable->pos.pos_x);
-                    if (local_data.current_attackable->figure == FIGURE_KING){
+                    ESP_LOG(WARN, TAG, "Checking type %d on pos %d:%d", local_data.current_attackable[i].figure, local_data.current_attackable[i].pos.pos_y,local_data.current_attackable[i].pos.pos_x);
+                    if (local_data.current_attackable[i].figure == FIGURE_KING){
                         if (check_calculations){
                             ESP_LOG(WARN, TAG, "King under possible attack from queen");
 
@@ -2391,6 +2482,103 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
                         }
                         ESP_LOG(WARN, TAG, "King under attack");
                         local_data.check = true;
+                        check_happened_this_turn = true;
+
+                        
+                        int8_t mod_x = 0;
+                        int8_t mod_y = 0;
+                        
+                        figure_position_t king_pos = local_data.current_attackable[i].pos;
+
+                        if (king_pos.pos_y > updated_pos.pos_y){
+                            mod_y = FORWARD_MOD;
+                        } else if (king_pos.pos_y < updated_pos.pos_y) {
+                            mod_y = BACKWARD_MOD;
+                        }
+
+                        if (king_pos.pos_x > updated_pos.pos_x){
+                            mod_x = RIGHT_MOD;
+                        } else if (king_pos.pos_x < updated_pos.pos_x) {
+                            mod_x = LEFT_MOD;
+                        }
+
+                        uint8_t *modified_led_array_ptr = NULL;
+
+                        if (mod_y != 0 || mod_x != 0){
+                            uint8_t modified_x = updated_pos.pos_x;
+                            uint8_t modified_y = updated_pos.pos_y;
+
+                            ESP_LOG(INFO, TAG, "mods in trajectory filling y %d x %d", mod_y, mod_x);
+
+                            if (mod_y != 0) { 
+                                for (int j = updated_pos.pos_y + mod_y; j != king_pos.pos_y; j += mod_y){
+                                    ESP_LOG(WARN, TAG, "REALLOC mods y %d x %d", mod_y, mod_x);
+                                    modified_led_array_ptr = (uint8_t*)realloc(modified_led_array_ptr, ((traj_counter+1)*(sizeof(uint8_t))));
+                                    
+                                    if (!modified_led_array_ptr) {
+                                        ESP_LOG(ERROR, TAG, "Failed to reallocate more memory. Aborting.");
+                                        goto FUNCTION_FAIL;
+                                    }
+                                    modified_x += mod_x;
+                                    modified_led_array_ptr[traj_counter] = MATRIX_TO_ARRAY_CONVERSION(j, modified_x);
+
+                                    traj_counter++;
+                                }
+                            } else if (mod_x != 0) {
+                                for (int j = updated_pos.pos_x + mod_x; j != king_pos.pos_x; j += mod_x){
+                                    ESP_LOG(WARN, TAG, "REALLOC mods y %d x %d", mod_y, mod_x);
+                                    modified_led_array_ptr = (uint8_t*)realloc(modified_led_array_ptr, ((traj_counter+1)*(sizeof(uint8_t))));
+                                    
+                                    if (!modified_led_array_ptr) {
+                                        ESP_LOG(ERROR, TAG, "Failed to reallocate more memory. Aborting.");
+                                        goto FUNCTION_FAIL;
+                                    }
+                                    modified_y += mod_y;
+                                    modified_led_array_ptr[traj_counter] = MATRIX_TO_ARRAY_CONVERSION(modified_y, j);
+
+                                    traj_counter++;
+                                }
+                            }
+                        } else if (mod_y == 0 && mod_x == 0){
+                            ESP_LOG(ERROR, TAG, "King happens to be at the same cell as the queen. WRONG. Aborting");
+                            goto FUNCTION_FAIL;
+                        }
+
+                        if (local_data.check_trajectory){
+                            ESP_LOG(ERROR, TAG, "local_data.check_trajectory is not null.");
+                            free(local_data.check_trajectory);
+                            local_data.check_trajectory = NULL;
+                        }
+
+                        ESP_LOG(WARN, TAG, "REALLOC for figure pos");
+                        modified_led_array_ptr = (uint8_t *)realloc(modified_led_array_ptr, ((traj_counter+1) * sizeof(uint8_t))); 
+                        
+
+                        if (!modified_led_array_ptr){
+                            ESP_LOG(ERROR, TAG, "Failed to reallocate memory on check");
+                            return ESP_FAIL; // TODO: dobule check
+                        }
+
+                        for (int j = 0; j < traj_counter; j++){
+                            ESP_LOG(INFO, TAG, "Mod led array ptr %d", modified_led_array_ptr[j]);
+                        }
+
+                        uint8_t converted_base_position = MATRIX_TO_ARRAY_CONVERSION((updated_pos.pos_y), (updated_pos.pos_x));
+                        modified_led_array_ptr[traj_counter] = converted_base_position;
+                        traj_counter++;
+                        ESP_LOG(WARN, TAG, "Added %d or %d (predefined) %d:%d to led_array_ptr", MATRIX_TO_ARRAY_CONVERSION((updated_pos.pos_y), (updated_pos.pos_x)), converted_base_position, updated_pos.pos_y, updated_pos.pos_x);
+
+                        ESP_LOG(WARN, TAG, "Sizeof modified led array ptr %d", malloc_usable_size(*modified_led_array_ptr));
+
+                        local_data.check_trajectory = modified_led_array_ptr;
+
+                         if (local_data.check_trajectory) {
+                            ESP_LOG(ERROR, TAG, "trajectory 0 %d", local_data.check_trajectory[0]);
+                        }
+
+                        local_data.trajectory_counter = traj_counter;
+
+                        break;
                     }
                 }
             }
@@ -2532,6 +2720,13 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
             led_array_ptr = NULL;
         }
     }
+    
+    if (local_data.current_attackable) {
+        ESP_LOG(WARN, TAG, "FREE local_data.current_attackable");
+        free(local_data.current_attackable);
+        local_data.current_attackable = NULL;
+    }
+
     return ret;
 FUNCTION_FAIL:
     ret = ESP_FAIL;
