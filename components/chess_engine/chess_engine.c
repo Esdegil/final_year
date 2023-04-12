@@ -2111,19 +2111,30 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
                         uint8_t *modified_led_array_ptr = NULL;
 
                         if (mod_y != 0){
-                            for (int j = updated_pos.pos_y+1; j != king_pos.pos_y; j += mod_y){
+                            for (int j = updated_pos.pos_y + mod_y; j != king_pos.pos_y; j += mod_y){
                                 ESP_LOG(WARN, TAG, "REALLOC");
                                 modified_led_array_ptr = (uint8_t*)realloc(modified_led_array_ptr, ((traj_counter+1)*(sizeof(uint8_t))));
-                                //led_array_ptr[traj_counter] = MATRIX_TO_ARRAY_CONVERSION(j, (updated_pos.pos_x));
+                                
+                                if (!modified_led_array_ptr) {
+                                    ESP_LOG(ERROR, TAG, "Failed to reallocate more memory. Aborting.");
+                                    goto FUNCTION_FAIL;
+                                }
+                                
                                 modified_led_array_ptr[traj_counter] = MATRIX_TO_ARRAY_CONVERSION(j, (updated_pos.pos_x));
-                                // TODO: add realloc checks
+
                                 traj_counter++;
                             }
                         } else if (mod_x != 0){
-                            for (int j = updated_pos.pos_x+1; j != king_pos.pos_x; j += mod_x){
+                            for (int j = updated_pos.pos_x + mod_x; j != king_pos.pos_x; j += mod_x){
                                 //led_array_ptr[traj_counter] = MATRIX_TO_ARRAY_CONVERSION((updated_pos.pos_y), j);
                                 ESP_LOG(WARN, TAG, "REALLOC");
                                 modified_led_array_ptr = (uint8_t*)realloc(modified_led_array_ptr, ((traj_counter+1)*(sizeof(uint8_t))));
+                                
+                                if (!modified_led_array_ptr) {
+                                    ESP_LOG(ERROR, TAG, "Failed to reallocate more memory. Aborting.");
+                                    goto FUNCTION_FAIL;
+                                }
+
                                 modified_led_array_ptr[traj_counter] = MATRIX_TO_ARRAY_CONVERSION((updated_pos.pos_y), j);
                                 traj_counter++;
                             }
@@ -2135,9 +2146,9 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
                             local_data.check_trajectory = NULL;
                         }
 
-                        ESP_LOG(WARN, TAG, "REALLOC");
-                        modified_led_array_ptr = (uint8_t *)realloc(modified_led_array_ptr, ((counter+1) * sizeof(uint8_t))); 
-                        traj_counter++;
+                        ESP_LOG(WARN, TAG, "REALLOC for figure pos");
+                        modified_led_array_ptr = (uint8_t *)realloc(modified_led_array_ptr, ((traj_counter+1) * sizeof(uint8_t))); 
+                        
 
                         if (!modified_led_array_ptr){
                             ESP_LOG(ERROR, TAG, "Failed to reallocate memory on check");
@@ -2150,6 +2161,8 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
 
                         
                         modified_led_array_ptr[traj_counter] = MATRIX_TO_ARRAY_CONVERSION((updated_pos.pos_y), (updated_pos.pos_x));
+                        traj_counter++;
+
                         ESP_LOG(WARN, TAG, "Added %d or %d:%d to led_array_ptr", MATRIX_TO_ARRAY_CONVERSION((updated_pos.pos_y), (updated_pos.pos_x)), updated_pos.pos_y, updated_pos.pos_x);
 
                         ESP_LOG(WARN, TAG, "Sizeof modified led array ptr %d", malloc_usable_size(*modified_led_array_ptr));
@@ -2262,8 +2275,8 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
             if (local_data.counter_attackable != 0){
                 ESP_LOG(WARN, TAG, "attackable counter %d", local_data.counter_attackable);
                 for (int i = 0; i < local_data.counter_attackable; i++) {
-                    ESP_LOG(WARN, TAG, "Checking type %d on pos %d:%d", local_data.current_attackable->figure, local_data.current_attackable->pos.pos_y,local_data.current_attackable->pos.pos_x);
-                    if (local_data.current_attackable->figure == FIGURE_KING){
+                    ESP_LOG(WARN, TAG, "Checking type %d on pos %d:%d", local_data.current_attackable[i].figure, local_data.current_attackable[i].pos.pos_y,local_data.current_attackable[i].pos.pos_x);
+                    if (local_data.current_attackable[i].figure == FIGURE_KING){
                         if (check_calculations){
                             ESP_LOG(WARN, TAG, "King under possible attack from bishop");
 
@@ -2277,6 +2290,81 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
                         }
                         ESP_LOG(WARN, TAG, "King under attack");
                         local_data.check = true;
+                        check_happened_this_turn = true;
+
+                        
+                        int8_t mod_x = 0;
+                        int8_t mod_y = 0;
+                        
+                        figure_position_t king_pos = local_data.current_attackable[i].pos;
+
+                        if (king_pos.pos_y > updated_pos.pos_y){
+                            mod_y = FORWARD_MOD;
+                        } else if (king_pos.pos_y < updated_pos.pos_y) {
+                            mod_y = BACKWARD_MOD;
+                        }
+
+                        if (king_pos.pos_x > updated_pos.pos_x){
+                            mod_x = RIGHT_MOD;
+                        } else if (king_pos.pos_x < updated_pos.pos_x) {
+                            mod_x = LEFT_MOD;
+                        }
+
+                        uint8_t *modified_led_array_ptr = NULL;
+
+                        if (mod_y != 0 && mod_x != 0){
+                            uint8_t modified_x = updated_pos.pos_x;
+                            for (int j = updated_pos.pos_y + mod_y; j != king_pos.pos_y; j += mod_y){
+                                ESP_LOG(WARN, TAG, "REALLOC mods y %d x %d", mod_y, mod_x);
+                                modified_led_array_ptr = (uint8_t*)realloc(modified_led_array_ptr, ((traj_counter+1)*(sizeof(uint8_t))));
+                                
+                                if (!modified_led_array_ptr) {
+                                    ESP_LOG(ERROR, TAG, "Failed to reallocate more memory. Aborting.");
+                                    goto FUNCTION_FAIL;
+                                }
+                                modified_x += mod_x;
+                                modified_led_array_ptr[traj_counter] = MATRIX_TO_ARRAY_CONVERSION(j, modified_x);
+
+                                traj_counter++;
+                            }
+                        }
+
+                        if (local_data.check_trajectory){
+                            ESP_LOG(ERROR, TAG, "local_data.check_trajectory is not null.");
+                            free(local_data.check_trajectory);
+                            local_data.check_trajectory = NULL;
+                        }
+
+                        ESP_LOG(WARN, TAG, "REALLOC for figure pos");
+                        modified_led_array_ptr = (uint8_t *)realloc(modified_led_array_ptr, ((traj_counter+1) * sizeof(uint8_t))); 
+                        
+
+                        if (!modified_led_array_ptr){
+                            ESP_LOG(ERROR, TAG, "Failed to reallocate memory on check");
+                            return ESP_FAIL; // TODO: dobule check
+                        }
+
+                        for (int j = 0; j < traj_counter; j++){
+                            ESP_LOG(INFO, TAG, "Mod led array ptr %d", modified_led_array_ptr[j]);
+                        }
+
+                        uint8_t converted_base_position = MATRIX_TO_ARRAY_CONVERSION((updated_pos.pos_y), (updated_pos.pos_x));
+                        modified_led_array_ptr[traj_counter] = converted_base_position;
+                        traj_counter++;
+                        ESP_LOG(WARN, TAG, "Added %d or %d (predefined) %d:%d to led_array_ptr", MATRIX_TO_ARRAY_CONVERSION((updated_pos.pos_y), (updated_pos.pos_x)), converted_base_position, updated_pos.pos_y, updated_pos.pos_x);
+
+                        ESP_LOG(WARN, TAG, "Sizeof modified led array ptr %d", malloc_usable_size(*modified_led_array_ptr));
+
+                        local_data.check_trajectory = modified_led_array_ptr;
+
+                         if (local_data.check_trajectory) {
+                            ESP_LOG(ERROR, TAG, "trajectory 0 %d", local_data.check_trajectory[0]);
+                        }
+
+                        local_data.trajectory_counter = traj_counter;
+
+                        break;
+
                     }
                 }
             }
