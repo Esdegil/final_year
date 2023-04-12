@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <malloc.h>
 #include "chess_engine.h"
 
 
@@ -17,6 +18,13 @@
 #define VERTICAL_LOCK 1
 
 #define NO_LIMIT_FOR_MOVES 0
+
+#define MAX_ATTACK_MOVES_ROOK 4
+#define MAX_ATTACK_MOVES_PAWN 2
+#define MAX_ATTACK_MOVES_KNIGHT 8
+#define MAX_ATTACK_MOVES_QUEEN 8
+#define MAX_ATTACK_MOVES_KING 8
+#define MAX_ATTACK_MOVES_BISHOP 4 
 
 #define CALCULATIONS_WITHOUT_LEDS false
 #define CALCULATIONS_WITH_LEDS true
@@ -183,7 +191,7 @@ esp_err_t chess_engine_init(){
             }
         }
 
-        local_data.board.board[1][0].figure_type = FIGURE_QUEEN;
+        local_data.board.board[1][0].figure_type = FIGURE_KNIGHT;
 
         local_data.board.board[1][0].white = true;
 
@@ -894,7 +902,18 @@ static esp_err_t rook_led_calculation(figure_position_t pos, uint8_t **led_array
     return ESP_OK;
 }
 
-static esp_err_t knight_led_calculation(figure_position_t pos) {
+static esp_err_t test_function(uint8_t *static_array, uint8_t *dynamic_array, uint8_t counter) {
+
+    for (int i = 0; i < counter; i++){
+        ESP_LOG(INFO, TAG, "I %d counter %d", i, counter);
+        dynamic_array[i] = static_array[i];
+        ESP_LOG(WARN, TAG, "Values dyn %d sta %d", dynamic_array[i], static_array[i]);
+    }
+
+    return ESP_OK;
+}
+
+static esp_err_t knight_led_calculation(figure_position_t pos, uint8_t **led_array_ptr, uint8_t *counter) {
     chess_board_t board;
 
     if(access_lock()){
@@ -913,6 +932,15 @@ static esp_err_t knight_led_calculation(figure_position_t pos) {
     uint8_t two = 2;
 
     
+    attackable_figures_t *figures_ptr = calloc(MAX_ATTACK_MOVES_KNIGHT, sizeof(attackable_figures_t));
+    uint8_t attackable_counter = 0;
+    ESP_LOG(WARN, TAG,"MALLOC");
+    if (!figures_ptr) {
+        ESP_LOG(ERROR, TAG, "Failed to allocate memory. Bishop.");
+        // TODO: return?
+    }
+
+
     if ((uint8_t)(pos.pos_y + 2) < MATRIX_Y){
         
         if ((uint8_t)(pos.pos_x + 1) < MATRIX_X){
@@ -923,6 +951,11 @@ static esp_err_t knight_led_calculation(figure_position_t pos) {
                     ESP_LOG(WARN, TAG, "Y + 2 x + 1");
                     //array[empty_cells] = (((pos.pos_y+2)*MATRIX_Y) + pos.pos_x+1);
                     array[empty_cells] = MATRIX_TO_ARRAY_CONVERSION((pos.pos_y+2), (pos.pos_x+1));
+                    figures_ptr[attackable_counter].pos.pos_y = pos.pos_y + 2;
+                    figures_ptr[attackable_counter].pos.pos_x = pos.pos_x + 1;
+                    figures_ptr[attackable_counter].figure = board.board[pos.pos_y+2][pos.pos_x+1].figure_type;
+                    attackable_counter++;
+
                     empty_cells++;
                 }
             } else {
@@ -940,6 +973,11 @@ static esp_err_t knight_led_calculation(figure_position_t pos) {
                     ESP_LOG(WARN, TAG, "Y + 2 x - 1");
                    // array[empty_cells] = (((pos.pos_y+2)*MATRIX_Y) + pos.pos_x-1);
                     array[empty_cells] = MATRIX_TO_ARRAY_CONVERSION((pos.pos_y+2), (pos.pos_x-1));
+
+                    figures_ptr[attackable_counter].pos.pos_y = pos.pos_y + 2;
+                    figures_ptr[attackable_counter].pos.pos_x = pos.pos_x - 1;
+                    figures_ptr[attackable_counter].figure = board.board[pos.pos_y+2][pos.pos_x-1].figure_type;
+                    attackable_counter++;
                     
                     empty_cells++;
                 }
@@ -963,6 +1001,12 @@ static esp_err_t knight_led_calculation(figure_position_t pos) {
                     //array[empty_cells] = (((pos.pos_y-2)*MATRIX_Y) + pos.pos_x+1);
                     array[empty_cells] = MATRIX_TO_ARRAY_CONVERSION((pos.pos_y-2), (pos.pos_x+1));
                     
+                    figures_ptr[attackable_counter].pos.pos_y = pos.pos_y - 2;
+                    figures_ptr[attackable_counter].pos.pos_x = pos.pos_x + 1;
+                    figures_ptr[attackable_counter].figure = board.board[pos.pos_y-2][pos.pos_x+1].figure_type;
+                    attackable_counter++;
+                    
+
                     empty_cells++;
                 }
             } else {
@@ -979,6 +1023,11 @@ static esp_err_t knight_led_calculation(figure_position_t pos) {
                     ESP_LOG(WARN, TAG, "Enemy figure y-2 x-1");
                     //array[empty_cells] = (((pos.pos_y-2)*MATRIX_Y) + pos.pos_x-1);
                     array[empty_cells] = MATRIX_TO_ARRAY_CONVERSION((pos.pos_y-2), (pos.pos_x-1));
+
+                    figures_ptr[attackable_counter].pos.pos_y = pos.pos_y - 2;
+                    figures_ptr[attackable_counter].pos.pos_x = pos.pos_x - 1;
+                    figures_ptr[attackable_counter].figure = board.board[pos.pos_y-2][pos.pos_x-1].figure_type;
+                    attackable_counter++;
                     
                     empty_cells++;
                 }
@@ -1000,6 +1049,11 @@ static esp_err_t knight_led_calculation(figure_position_t pos) {
                     ESP_LOG(WARN, TAG, "Enemy figure y+1 x+2");
                     //array[empty_cells] = (((pos.pos_y+1)*MATRIX_Y) + pos.pos_x+2);
                     array[empty_cells] = MATRIX_TO_ARRAY_CONVERSION((pos.pos_y+1), (pos.pos_x+2));
+
+                    figures_ptr[attackable_counter].pos.pos_y = pos.pos_y + 1;
+                    figures_ptr[attackable_counter].pos.pos_x = pos.pos_x + 2;
+                    figures_ptr[attackable_counter].figure = board.board[pos.pos_y+1][pos.pos_x+2].figure_type;
+                    attackable_counter++;
                     
                     empty_cells++;
                 }
@@ -1016,6 +1070,12 @@ static esp_err_t knight_led_calculation(figure_position_t pos) {
                     ESP_LOG(WARN, TAG, "Enemy figure y-1 x+2");
                     //array[empty_cells] = (((pos.pos_y-1)*MATRIX_Y) + pos.pos_x+2);
                     array[empty_cells] = MATRIX_TO_ARRAY_CONVERSION((pos.pos_y-1), (pos.pos_x+2));
+
+                    figures_ptr[attackable_counter].pos.pos_y = pos.pos_y - 1;
+                    figures_ptr[attackable_counter].pos.pos_x = pos.pos_x + 2;
+                    figures_ptr[attackable_counter].figure = board.board[pos.pos_y-1][pos.pos_x+2].figure_type;
+                    attackable_counter++;
+                    
                     empty_cells++;
                 }
             } else {
@@ -1035,6 +1095,12 @@ static esp_err_t knight_led_calculation(figure_position_t pos) {
                     ESP_LOG(WARN, TAG, "Enemy figure y+1 x-2");
                     //array[empty_cells] = (((pos.pos_y+1)*MATRIX_Y) + pos.pos_x-2);
                     array[empty_cells] = MATRIX_TO_ARRAY_CONVERSION((pos.pos_y+1), (pos.pos_x-2));
+
+                    figures_ptr[attackable_counter].pos.pos_y = pos.pos_y + 1;
+                    figures_ptr[attackable_counter].pos.pos_x = pos.pos_x - 2;
+                    figures_ptr[attackable_counter].figure = board.board[pos.pos_y+1][pos.pos_x-2].figure_type;
+                    attackable_counter++;
+                    
                     empty_cells++;
                 }
             } else {
@@ -1050,6 +1116,13 @@ static esp_err_t knight_led_calculation(figure_position_t pos) {
                     ESP_LOG(WARN, TAG, "Enemy figure y-1 x-2");
                     //array[empty_cells] = (((pos.pos_y-1)*MATRIX_Y) + pos.pos_x-2);
                     array[empty_cells] = MATRIX_TO_ARRAY_CONVERSION((pos.pos_y-1), (pos.pos_x-2));
+
+                    figures_ptr[attackable_counter].pos.pos_y = pos.pos_y - 1;
+                    figures_ptr[attackable_counter].pos.pos_x = pos.pos_x - 2;
+                    figures_ptr[attackable_counter].figure = board.board[pos.pos_y-1][pos.pos_x-2].figure_type;
+                    attackable_counter++;
+                    
+
                     empty_cells++;
                 }
             } else {
@@ -1061,15 +1134,91 @@ static esp_err_t knight_led_calculation(figure_position_t pos) {
         }
     }
 
+     if (attackable_counter != 0) {
+        if (access_lock()){
+
+            if (local_data.current_attackable){
+                ESP_LOG(WARN, TAG, "FREE local_data.current_attackable");
+                free(local_data.current_attackable);
+                local_data.current_attackable = NULL;
+                
+            }
+
+            local_data.counter_attackable = attackable_counter;
+            local_data.current_attackable = figures_ptr;
+
+            release_lock();
+        } else {
+            ESP_LOG(ERROR, TAG, "Failed to access lock when saving attackable figures.");
+            if (figures_ptr) {
+                ESP_LOG(WARN, TAG, "FREE figures_ptr");
+                free(figures_ptr);
+                figures_ptr = NULL;
+            }
+        }
+    }
+
     ESP_LOG(INFO, TAG, "Calculated: %d", empty_cells);
 
-    for (uint8_t i = 0; i < empty_cells; i++){
-        ESP_LOG(INFO, TAG, "Found position: %d", array[i]);
+    printf("Minimum free heap size: %" PRIu32 " bytes largest block %d \n", esp_get_minimum_free_heap_size(), heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
+    ESP_LOG(INFO, TAG, " size %d", (sizeof(uint8_t) * empty_cells));
+
+
+    *led_array_ptr = NULL;
+
+    *led_array_ptr = (uint8_t*)malloc((empty_cells+3) * sizeof(uint8_t));
+
+    ESP_LOG(WARN, TAG, "allocated %d expected %d", malloc_usable_size(led_array_ptr), ((empty_cells+3) * sizeof(uint8_t)));
+
+    if (!(*led_array_ptr) || !led_array_ptr){
+        ESP_LOG(ERROR, TAG, "Failed to malloc. Aborting");
+        led_array_ptr = NULL;
+       
+        return ESP_FAIL;
     }
 
-    if (empty_cells > 0) {
-        local_data.board.board[pos.pos_y][pos.pos_x].led_op(array, empty_cells);
+    if (heap_caps_check_integrity(MALLOC_CAP_8BIT, true)) {
+
+    } else {
+        ESP_LOG(ERROR, TAG, "Heap is corrupted");
     }
+
+    if (heap_caps_check_integrity_addr(led_array_ptr, true)){
+
+    } else {
+        ESP_LOG(ERROR, TAG, "Heap is corrupted around led_array_ptr addr");
+    }
+
+    printf("Minimum free heap size: %" PRIu32 " bytes largest block %d \n", esp_get_minimum_free_heap_size(), heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
+
+    test_function(array, *led_array_ptr, empty_cells);
+
+
+    /*
+    for (int i = 0; i < empty_cells; i++){
+        
+
+
+        ESP_LOG(INFO, TAG, "Current i %d emptycells %d", i, empty_cells);
+        ESP_LOG(WARN, TAG, "REALLOC");
+        *led_array_ptr = (uint8_t*)realloc(*led_array_ptr, ((i + 1) * sizeof(uint8_t)));
+        
+        
+        if (!(*led_array_ptr) || !led_array_ptr){
+            ESP_LOG(WARN, TAG, "NULL PTR");
+            *led_array_ptr = (uint8_t*)realloc(*led_array_ptr, ((i + 1) * sizeof(uint8_t)));
+        }
+        *led_array_ptr[i] = array[i];
+        ESP_LOG(INFO, TAG, "Found position: %d led_array_ptr %d", array[i], *led_array_ptr[i]);
+
+        
+    }*/
+
+    *counter = empty_cells;
+
+    /*if (empty_cells > 0) {
+        local_data.board.board[pos.pos_y][pos.pos_x].led_op(*led_array_ptr, empty_cells);
+    }*/
 
     
 
@@ -1093,7 +1242,7 @@ static esp_err_t bishop_led_calculation(figure_position_t pos, uint8_t **led_arr
     uint8_t right_backward = 0;
 
      bool attack_possible = false;
-    attackable_figures_t *figures_ptr = calloc(4, sizeof(attackable_figures_t));
+    attackable_figures_t *figures_ptr = calloc(MAX_ATTACK_MOVES_BISHOP, sizeof(attackable_figures_t));
     ESP_LOG(WARN, TAG,"MALLOC");
     if (!figures_ptr) {
         ESP_LOG(ERROR, TAG, "Failed to allocate memory. Bishop.");
@@ -1232,7 +1381,7 @@ static esp_err_t queen_led_calculation(figure_position_t pos, uint8_t **led_arra
     uint8_t right_backward = 0;
 
     bool attack_possible = false;
-    attackable_figures_t *figures_ptr = calloc(8, sizeof(attackable_figures_t));
+    attackable_figures_t *figures_ptr = calloc(MAX_ATTACK_MOVES_QUEEN, sizeof(attackable_figures_t));
     ESP_LOG(WARN, TAG,"MALLOC");
     if (!figures_ptr) {
         ESP_LOG(ERROR, TAG, "Failed to allocate memory. Queen.");
@@ -1472,7 +1621,8 @@ static esp_err_t check_all_enemy_moves_for_pos(chess_board_t board, figure_posit
         in_check = local_data.check;
         if (in_check){
             if (local_data.check_trajectory){
-                check_figure = local_data.check_trajectory[local_data.trajectory_counter];
+                ESP_LOG(WARN, TAG, "traj counter %d", local_data.trajectory_counter);
+                check_figure = local_data.check_trajectory[local_data.trajectory_counter-1];
             } else {
                 ESP_LOG(ERROR, TAG, "check_trajectory is NULL in check_all_enemy_moves_for_pos in check conditions");
                 release_lock();
@@ -1654,7 +1804,7 @@ esp_err_t king_led_calculations(figure_position_t pos, uint8_t **led_array_ptr, 
 
     // TODO: needs a free at some point.
     bool attack_possible = false;
-    attackable_figures_t *figures_ptr = calloc(8, sizeof(attackable_figures_t));
+    attackable_figures_t *figures_ptr = calloc(MAX_ATTACK_MOVES_KING, sizeof(attackable_figures_t));
     ESP_LOG(WARN, TAG,"MALLOC");
     if (!figures_ptr) {
         ESP_LOG(ERROR, TAG, "Failed to allocate memory. KING.");
@@ -1890,6 +2040,8 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
     chess_figures_t current_figure;
     bool check = false;
 
+    esp_err_t ret = ESP_OK;
+
     if (access_lock()){
         current_figure = local_data.board.board[updated_pos.pos_y][updated_pos.pos_x].figure_type;
         check = local_data.check;
@@ -1903,7 +2055,7 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
 
     bool check_happened_this_turn = false;
 
-    esp_err_t ret = ESP_FAIL;
+    
     uint8_t traj_counter = 0;
 
     // TODO: add error handling
@@ -1987,19 +2139,28 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
                         modified_led_array_ptr = (uint8_t *)realloc(modified_led_array_ptr, ((counter+1) * sizeof(uint8_t))); 
                         traj_counter++;
 
-                        for (int j = 0; j < traj_counter; j++){
-                            ESP_LOG(INFO, TAG, "Mod led array ptr %d", modified_led_array_ptr[j]);
-                        }
-
-
                         if (!modified_led_array_ptr){
                             ESP_LOG(ERROR, TAG, "Failed to reallocate memory on check");
                             return ESP_FAIL; // TODO: dobule check
                         }
+
+                        for (int j = 0; j < traj_counter; j++){
+                            ESP_LOG(INFO, TAG, "Mod led array ptr %d", modified_led_array_ptr[j]);
+                        }
+
+                        
                         modified_led_array_ptr[traj_counter] = MATRIX_TO_ARRAY_CONVERSION((updated_pos.pos_y), (updated_pos.pos_x));
                         ESP_LOG(WARN, TAG, "Added %d or %d:%d to led_array_ptr", MATRIX_TO_ARRAY_CONVERSION((updated_pos.pos_y), (updated_pos.pos_x)), updated_pos.pos_y, updated_pos.pos_x);
 
-                        memcpy(&local_data.check_trajectory, &modified_led_array_ptr, (counter * (sizeof(uint8_t))));
+                        ESP_LOG(WARN, TAG, "Sizeof modified led array ptr %d", malloc_usable_size(*modified_led_array_ptr));
+
+                        //memcpy(&local_data.check_trajectory, &modified_led_array_ptr, (traj_counter * (sizeof(uint8_t))));
+
+                        local_data.check_trajectory = modified_led_array_ptr;
+
+                         if (local_data.check_trajectory) {
+                            ESP_LOG(ERROR, TAG, "trajectory 0 %d", local_data.check_trajectory[0]);
+                        }
 
                         ESP_LOG(DEBUG, TAG, "Past memcpy");
                         local_data.trajectory_counter = traj_counter;
@@ -2015,9 +2176,84 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
 
             break;
         case FIGURE_KNIGHT:
-            if (knight_led_calculation(updated_pos) != ESP_OK){
+            if (knight_led_calculation(updated_pos, &led_array_ptr, &counter) != ESP_OK){
 
             }
+
+            for (int i = 0; i < counter; i++){
+                ESP_LOG(WARN, TAG, "returned led_array_ptr i %d val %d", i, led_array_ptr[i]);
+            }
+
+            if (local_data.counter_attackable != 0){
+                ESP_LOG(WARN, TAG, "attackable counter %d", local_data.counter_attackable);
+                for (int i = 0; i < local_data.counter_attackable; i++) {
+                    ESP_LOG(WARN, TAG, "Checking type %d on pos %d:%d", local_data.current_attackable[i].figure, local_data.current_attackable[i].pos.pos_y,local_data.current_attackable[i].pos.pos_x);
+                    if (local_data.current_attackable[i].figure == FIGURE_KING){
+                        if (check_calculations){
+                            ESP_LOG(WARN, TAG, "King under possible attack from knight");
+
+                             if (led_array_ptr){
+                                ESP_LOG(WARN, TAG, "FREE led_array_ptr");
+                                free(led_array_ptr);
+                                led_array_ptr = NULL;
+                            }
+                            return ESP_ERR_NO_MEM;
+
+                        }
+                        ESP_LOG(WARN, TAG, "King under attack");
+                        local_data.check = true;
+                        check_happened_this_turn = true;
+
+                        
+                        figure_position_t king_pos = local_data.current_attackable[i].pos;
+
+                        
+                        uint8_t *modified_led_array_ptr = NULL;
+
+                        modified_led_array_ptr = (uint8_t*)calloc(1, sizeof(uint8_t));
+
+                        if (!modified_led_array_ptr){
+                            ESP_LOG(ERROR, TAG, "Failed to malloc modified_led_array_ptr");
+                            modified_led_array_ptr = NULL;
+                            goto FUNCTION_FAIL;
+                        }
+
+                        modified_led_array_ptr[0] = MATRIX_TO_ARRAY_CONVERSION((updated_pos.pos_y), (updated_pos.pos_x));
+                        
+                        ESP_LOG(WARN, TAG, "Added %d or %d:%d to led_array_ptr", MATRIX_TO_ARRAY_CONVERSION((updated_pos.pos_y), (updated_pos.pos_x)), updated_pos.pos_y, updated_pos.pos_x);
+
+                        traj_counter = 1;
+
+                        if (local_data.check_trajectory){
+                            ESP_LOG(ERROR, TAG, "local_data.check_trajectory is not null.");
+                            free(local_data.check_trajectory);
+                            local_data.check_trajectory = NULL;
+                        }
+
+                        for (int j = 0; j < traj_counter; j++){
+                            ESP_LOG(INFO, TAG, "Mod led array ptr %d", modified_led_array_ptr[j]);
+                        }
+
+                        
+
+                        //memcpy(&local_data.check_trajectory, &modified_led_array_ptr, (traj_counter * (sizeof(uint8_t))));
+
+                        local_data.check_trajectory = modified_led_array_ptr;
+
+                        ESP_LOG(DEBUG, TAG, "Past memcpy");
+
+                        if (local_data.check_trajectory) {
+                            ESP_LOG(ERROR, TAG, "trajectory 0 %d", local_data.check_trajectory[0]);
+                        }
+
+                        
+                        local_data.trajectory_counter = traj_counter;
+
+                        break;
+                    }
+                }
+            }
+
             break;
         case FIGURE_BISHOP:
             if (bishop_led_calculation(updated_pos, &led_array_ptr, &counter) != ESP_OK){
@@ -2188,7 +2424,12 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
             }
         } else if (!check){
         
-            ESP_LOG(INFO, TAG, "Array 0 after returning from function %d", led_array_ptr[0]);
+            //ESP_LOG(INFO, TAG, "Array 0 after returning from function %d", led_array_ptr[0]);
+
+            for (int i = 0; i < counter; i++) {
+                    ESP_LOG(INFO, TAG, "Array %d after returning from function %d", i, led_array_ptr[i]);
+            }
+
             local_data.board.board[updated_pos.pos_y][updated_pos.pos_x].led_op(led_array_ptr, counter);
         }
         
@@ -2203,7 +2444,13 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
             led_array_ptr = NULL;
         }
     }
-    return ESP_OK;
+    return ret;
+FUNCTION_FAIL:
+    ret = ESP_FAIL;
+
+    // TODO: actually do this
+
+    return ret;
 }
 
 static figure_position_t find_king_by_colour(chess_board_t board, bool white){
