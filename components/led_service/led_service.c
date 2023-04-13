@@ -51,7 +51,7 @@ struct led_color_t colour_white = {
 
 
 
-#define LED_STRIP_LENGTH ((MATRIX_X * MATRIX_Y) + 1)
+#define LED_STRIP_LENGTH ((MATRIX_X * MATRIX_Y))
 #define LED_STRIP_RMT_INTR_NUM 19U // Not sure what this exactly is. It was in the initial config for this library
 
 typedef struct led_strip_t led_strip_data_t;
@@ -239,17 +239,10 @@ esp_err_t led_test3(){
     led_strip_clear(&local_data.led_strip);
     ESP_LOG(INFO, TAG, "Cleared LED strip buffers");
 
-
-    if (led_strip_set_pixel_rgb(&local_data.led_strip, 3, 7, 3, 1)){
-        ESP_LOG(WARN, TAG, "Success");
-    } else {
-        ESP_LOG(ERROR, TAG, "Fail");
+    for (int i = 0; i < LED_STRIP_LENGTH; i++){
+        led_strip_set_pixel_color(&local_data.led_strip, i, &colour_green);
     }
-    led_strip_set_pixel_rgb(&local_data.led_strip, 4, 7, 1, 5);
-    led_strip_set_pixel_rgb(&local_data.led_strip, 5, 1, 7, 3);
-    led_strip_set_pixel_rgb(&local_data.led_strip, 6, 2, 7, 4);
-    led_strip_set_pixel_rgb(&local_data.led_strip, 7, 7, 7, 7);
-    led_strip_set_pixel_rgb(&local_data.led_strip, 8, 7, 7, 1);
+
 
     if (!led_strip_show(&local_data.led_strip)) {
         ESP_LOG(ERROR, TAG, "Failed to show");
@@ -334,9 +327,13 @@ esp_err_t led_clear_stripe(){
 
         if (!led_strip_clear(&local_data.led_strip)){
             ESP_LOG(ERROR, TAG, "Failed to clear the stripe");
+        } else {
+            ESP_LOG(INFO, TAG, "Cleared strip successfully");
         }
+        led_strip_show(&local_data.led_strip);
 
         if (!release_lock()){
+            
             return ESP_FAIL;
         } else {
             ret = ESP_OK;

@@ -28,3 +28,9 @@ Better add new componends with idf.py add-component <>
 Input/output: 32, 33, 25, 26, 27, 23, 22, 21, 19, 18, 12 (needs gpio_reset_pin), 13 (needs gpio_reset_pin), 14 (needs gpio_reset_pin), 16 (looks like it doesn't need anything else), 17 (looks like it doesn't need anything else), 4 (looks like it doesn't need anything else) \
 Input only: 34, 35, 39 (VN), 36 (VP) \
 Potentially usable: 5, 15, 2
+
+# Important TODOs and known problems
+### King vs king problem
+happens when the only figures on the board are 2 kings. Because of how `check_all_enemy_moves_for_pos()` function works.
+### King not being able to move out of the check
+Note: looks like I've fixed it, but it's poorly tested. Might be really buggy

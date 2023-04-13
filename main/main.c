@@ -226,6 +226,7 @@ void app_main(void)
         led_test2();
         vTaskDelay(1000 / portTICK_PERIOD_MS);
         led_test3();
+        vTaskDelay(10000/portTICK_PERIOD_MS);
 #endif
     }
 
