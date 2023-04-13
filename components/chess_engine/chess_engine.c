@@ -61,6 +61,7 @@ typedef struct local_data{
     uint8_t trajectory_counter;
 
     bool check;
+    bool checkmate;
 
     uint8_t *temp_led_array;
     uint8_t temp_counter;
@@ -112,6 +113,8 @@ esp_err_t chess_engine_init(){
     local_data.last_change_data.pos.pos_y = MATRIX_Y+1;
     local_data.last_change_data.pos.pos_x = MATRIX_X+1;
 
+    local_data.checkmate = false;
+
     if (FULL_BOARD){
         // TODO: later fill this
     } else { // assuming 3x3 prototype
@@ -121,8 +124,8 @@ esp_err_t chess_engine_init(){
     // White figures init
         local_data.board.board[0][3].figure_type = FIGURE_KING;
         local_data.board.board[0][0].figure_type = FIGURE_END_LIST;
-        local_data.board.board[0][1].figure_type = FIGURE_END_LIST;
-        local_data.board.board[0][2].figure_type = FIGURE_ROOK;
+        local_data.board.board[0][1].figure_type = FIGURE_ROOK;
+        local_data.board.board[0][2].figure_type = FIGURE_END_LIST;
 
         local_data.board.board[0][0].white = true;
         local_data.board.board[0][1].white = true;
@@ -219,11 +222,11 @@ esp_err_t chess_engine_init(){
 
 
         
-        local_data.board.board[1][1].figure_type = FIGURE_ROOK;
+        local_data.board.board[1][2].figure_type = FIGURE_ROOK;
 
-        local_data.board.board[1][1].white = true;
+        local_data.board.board[1][2].white = true;
 
-        local_data.board.board[1][1].led_op = &led_op_pawn;
+        local_data.board.board[1][2].led_op = &led_op_pawn;
         
 
         local_data.board.board[2][0].figure_type = FIGURE_QUEEN;
@@ -2241,7 +2244,51 @@ esp_err_t king_led_calculations(figure_position_t pos, uint8_t **led_array_ptr, 
 }
 
 
-static esp_err_t checkmate_check_for_colour() {
+static esp_err_t checkmate_check(figure_position_t pos) {
+
+    chess_board_t board;
+    if (access_lock()) {
+        board = local_data.board;
+        release_lock();
+    } else {
+        ESP_LOG(ERROR, TAG, "Checkmate check failed because couldn't access lock");
+        return ESP_FAIL;
+    }
+
+    figure_position_t temp_pos;
+    esp_err_t ret = 0;
+
+    bool white = false;
+    bool at_least_one_possible_move = false;
+
+    white = !board.board[pos.pos_y][pos.pos_x].white; // opposite because we need opposite colour of figure that checked the king
+
+    for (int i = 0; i < MATRIX_Y; i++){
+        temp_pos.pos_y = i;
+        for (int j = 0; j < MATRIX_X; j++){
+            temp_pos.pos_x = j;
+            if (board.board[i][j].figure_type != FIGURE_END_LIST && board.board[i][j].white == white) {
+
+                
+                ret = required_leds_calculation(temp_pos, CALCULATIONS_WITHOUT_LEDS, false);// TODO: check this
+                if (ret != ESP_OK){
+
+                    ESP_LOG(WARN, TAG, "returned ret: %d", ret);
+
+                } else {
+                    at_least_one_possible_move = true;
+                }
+                if (at_least_one_possible_move) {
+                    ESP_LOG(INFO, TAG, "There is still at least 1 possible move to avoid checkmate");
+                    return ESP_OK;
+                }
+            }
+        }
+    }
+    if (!at_least_one_possible_move){
+        ESP_LOG(WARN, TAG, "Looks like there are no possible moves left to avoid checkmate");
+        return ESP_FAIL;
+    }
 
 
     return ESP_OK;
@@ -2850,9 +2897,9 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
     }
 
 
-    if (show_leds) {
-        ESP_LOG(INFO, TAG, "Showing LEDS");
-        ESP_LOG(INFO, TAG, "Counter: %d", counter);
+    
+        
+        
 
         if (!led_array_ptr){
             ESP_LOG(ERROR, TAG, "NULL ptr");
@@ -2912,30 +2959,17 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
             }
             if (valid_moves_counter > 0){
                 
-                /*ESP_LOG(WARN, TAG, "MALLOC valid_moves_counter");
-                valid_moves_ptr = (uint8_t *)calloc(valid_moves_counter, sizeof(uint8_t));
-
-                if (!valid_moves_ptr){
-                    ESP_LOG(ERROR, TAG, "Failed to allocate memory under check conditions");
-                    if (led_array_ptr){
-                        free(led_array_ptr);
-                        led_array_ptr = NULL;
-                        return ESP_FAIL;
-                    }
-                    return ESP_FAIL;
-                }
-
-                for (int i = 0; i < valid_moves_counter; i++){
-                    valid_moves_ptr[i] = led_array_ptr[i];
-                }*/
-                
-
                 ESP_LOG(INFO, TAG, "Valid moves num %d", valid_moves_counter);
-                local_data.board.board[updated_pos.pos_y][updated_pos.pos_x].led_op(led_array_ptr, valid_moves_counter);
-
+                if (show_leds){
+                    ESP_LOG(INFO, TAG, "Showing LEDS");
+                    local_data.board.board[updated_pos.pos_y][updated_pos.pos_x].led_op(led_array_ptr, valid_moves_counter);
+                }
             } else {
                 ESP_LOG(INFO, TAG, "No moves for this figure will protect king from check");
-                led_no_move_possible(MATRIX_TO_ARRAY_CONVERSION((updated_pos.pos_y), (updated_pos.pos_x)));
+                if (show_leds){
+                    ESP_LOG(INFO, TAG, "Showing LEDS");
+                    led_no_move_possible(MATRIX_TO_ARRAY_CONVERSION((updated_pos.pos_y), (updated_pos.pos_x)));
+                }
                 return ESP_ERR_INVALID_STATE;
             }
         } else if (!check){
@@ -2945,12 +2979,16 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
             for (int i = 0; i < counter; i++) {
                     ESP_LOG(INFO, TAG, "Array %d after returning from function %d", i, led_array_ptr[i]);
             }
+            if (show_leds){
+                ESP_LOG(INFO, TAG, "Showing LEDS");
+                local_data.board.board[updated_pos.pos_y][updated_pos.pos_x].led_op(led_array_ptr, counter);
+            }
 
-            local_data.board.board[updated_pos.pos_y][updated_pos.pos_x].led_op(led_array_ptr, counter);
+            
         }
         
         
-    }
+    
 
     // uncomment if problems with heap appear
     /*
@@ -2966,7 +3004,10 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
         }
     } else {
         ESP_LOG(WARN, TAG, "Check happened this turn. need to check if any enemy figures or moves can protect king from check");
-        if (checkmate_check_for_colour()){}
+        if (checkmate_check(updated_pos) != ESP_OK){
+            ESP_LOG(ERROR, TAG, "No possible moves left to do");
+            local_data.checkmate = true;
+        }
     }
     
     if (local_data.current_attackable) {
@@ -3034,14 +3075,22 @@ static void chess_engine_task(void *args){
     temp_pos.pos_y = MATRIX_Y;
     temp_pos.pos_x = MATRIX_X;
 
+    bool checkmate = false;
+
     while(1){
 
         if (access_lock()){
             board = local_data.board;
             check = local_data.check;
+            checkmate = local_data.checkmate;
             release_lock();
         } else {
             
+        }
+
+        if (checkmate){
+            ESP_LOG(WARN, TAG, "CHECKMATE. Game is over");
+            break;
         }
 
         if (uxQueueMessagesWaiting(local_data.queue) != 0){
@@ -3138,9 +3187,13 @@ static void chess_engine_task(void *args){
                                         continue; // TODO: not sure what to do in this situation
                                     }
                                     uint8_t new_pos = 0;
-                                    new_pos = MATRIX_TO_ARRAY_CONVERSION((change_data.pos.pos_y), (change_data.pos.pos_x));    
+                                    new_pos = MATRIX_TO_ARRAY_CONVERSION((change_data.pos.pos_y), (change_data.pos.pos_x)); 
+
+                                    bool not_on_trajectory = true;
+
                                     for (int i = 0; i < local_data.trajectory_counter; i++){
                                         if (local_data.check_trajectory[i] == new_pos){
+                                            not_on_trajectory = false;
                                             ESP_LOG(WARN, TAG, "Check eliminated by moving here %d:%d converted %d", change_data.pos.pos_y, change_data.pos.pos_x, MATRIX_TO_ARRAY_CONVERSION((change_data.pos.pos_y), (change_data.pos.pos_x)));
                                             local_data.check = false;
                                             local_data.trajectory_counter = 0;
@@ -3150,6 +3203,18 @@ static void chess_engine_task(void *args){
                                             break;
                                         }
                                     }
+                                    if (not_on_trajectory) {
+                                        ESP_LOG(WARN, TAG, "Figure moved out of the check trajectory");
+                                        local_data.check = false;
+                                        
+                                        if (local_data.check_trajectory) {
+                                            ESP_LOG(WARN, TAG, "FREE local_data.check_trajectory");
+                                            local_data.trajectory_counter = 0;
+                                            free(local_data.check_trajectory);
+                                            local_data.check_trajectory = NULL;
+                                        }
+                                    }
+
                                 }
                                 required_leds_calculation(change_data.pos, CALCULATIONS_WITHOUT_LEDS, false); // TODO: why this is here?
 
