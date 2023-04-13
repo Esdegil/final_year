@@ -1507,6 +1507,7 @@ esp_err_t update_board_on_lift(state_change_data_t data) {
         
         if (xQueueSend(local_data.queue, (void*)&data, (TickType_t)10) != pdTRUE) {
             ESP_LOG(ERROR, TAG, "Failed to post pos x to queue. Aborting");
+            release_lock();
             return ESP_FAIL;
         }
         xEventGroupSetBits(local_data.event_handle, FIGURE_LIFTED_BIT_0); // TODO: think if it's needed here at all
