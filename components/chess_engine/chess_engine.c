@@ -62,6 +62,9 @@ typedef struct local_data{
 
     bool check;
 
+    uint8_t *temp_led_array;
+    uint8_t temp_counter;
+
 } local_data_t;
 
 static local_data_t local_data;
@@ -198,11 +201,13 @@ esp_err_t chess_engine_init(){
             }
         }
 
+        /*
         local_data.board.board[2][2].figure_type = FIGURE_PAWN;
 
         local_data.board.board[2][2].white = false;
 
         local_data.board.board[2][2].led_op = &led_op_pawn;
+        */
 
         /*
         local_data.board.board[1][2].figure_type = FIGURE_ROOK;
@@ -214,11 +219,11 @@ esp_err_t chess_engine_init(){
 
 
         
-        local_data.board.board[1][0].figure_type = FIGURE_ROOK;
+        local_data.board.board[1][1].figure_type = FIGURE_ROOK;
 
-        local_data.board.board[1][0].white = true;
+        local_data.board.board[1][1].white = true;
 
-        local_data.board.board[1][0].led_op = &led_op_pawn;
+        local_data.board.board[1][1].led_op = &led_op_pawn;
         
 
         local_data.board.board[2][0].figure_type = FIGURE_QUEEN;
@@ -1788,7 +1793,7 @@ static uint8_t count_figures_on_board_by_colour(chess_board_t board, bool white)
 }
 
 
-static esp_err_t check_all_enemy_moves_for_pos(chess_board_t board, figure_position_t pos){
+static esp_err_t check_all_enemy_moves_for_pos(chess_board_t board, figure_position_t pos, bool king_calculations){
   
 
     // TODO: assuming .white_turn is correct. Double check that later.
@@ -1836,7 +1841,7 @@ static esp_err_t check_all_enemy_moves_for_pos(chess_board_t board, figure_posit
                     continue;
                 }
                 
-                if (in_check) {
+                if (in_check && !king_calculations) {
                     if (check_figure == MATRIX_TO_ARRAY_CONVERSION(i, j)){
                         ESP_LOG(INFO, TAG, "Found attacking figure at %d:%d array %d", i, j, MATRIX_TO_ARRAY_CONVERSION(i, j));
                         ESP_LOG(INFO, TAG, "Skipping this figure");
@@ -1849,8 +1854,15 @@ static esp_err_t check_all_enemy_moves_for_pos(chess_board_t board, figure_posit
                 ESP_LOG(WARN, TAG, "Checking for pos %d:%d", temp_pos.pos_y, temp_pos.pos_x);
                 ret = required_leds_calculation(temp_pos, CALCULATIONS_WITHOUT_LEDS, true);
                 if (ret == ESP_ERR_NO_MEM){
-                    ESP_LOG(ERROR, TAG, "At least 1 figure is blocking this move: %d:%d", pos.pos_y, pos.pos_x);
-                    return ret;
+                    uint8_t converted_pos = MATRIX_TO_ARRAY_CONVERSION((pos.pos_y), (pos.pos_x));
+                    for (int z = 0; z < local_data.temp_counter; z++) {
+                        if (local_data.temp_led_array[z] == converted_pos){
+                            ESP_LOG(ERROR, TAG, "At least 1 figure is blocking this move: %d:%d", pos.pos_y, pos.pos_x);
+                            return ret;
+                        }
+                    }
+                    ESP_LOG(ERROR, TAG, "Looks like it's okay to move here %d:%d", pos.pos_y, pos.pos_x);
+                    return ESP_OK;
                 }
             }
 
@@ -1885,7 +1897,7 @@ uint8_t calculate_diagonal_with_mods(chess_board_t board, figure_position_t pos,
         temp_pos.pos_y = pos.pos_y + ver_mod;
         temp_pos.pos_x = pos.pos_x + hor_mod;
         ESP_LOG(INFO, TAG, "MODS: hor %d ver %d. Original: %d:%d temp modified: %d:%d", hor_mod, ver_mod, pos.pos_y, pos.pos_x, temp_pos.pos_y, temp_pos.pos_x);
-        if (check_all_enemy_moves_for_pos(board, temp_pos) == ESP_ERR_NO_MEM){
+        if (check_all_enemy_moves_for_pos(board, temp_pos, true) == ESP_ERR_NO_MEM){
             ESP_LOG(INFO, TAG, "No possible attacks for pos %d:%d", temp_pos.pos_y, temp_pos.pos_x);
             result = 0;
         }
@@ -1918,7 +1930,7 @@ static uint8_t calculate_horisontal_with_mods(chess_board_t board, figure_positi
         temp_pos.pos_y = pos.pos_y;
         temp_pos.pos_x = pos.pos_x + hor_mod;
         ESP_LOG(INFO, TAG, "MODS: hor %d ver %d. Original: %d:%d temp modified: %d:%d", hor_mod, 1, pos.pos_y, pos.pos_x, temp_pos.pos_y, temp_pos.pos_x);
-        if (check_all_enemy_moves_for_pos(board, temp_pos) == ESP_ERR_NO_MEM){
+        if (check_all_enemy_moves_for_pos(board, temp_pos, true) == ESP_ERR_NO_MEM){
             ESP_LOG(INFO, TAG, "No possible attacks for pos %d:%d", temp_pos.pos_y, temp_pos.pos_x);
             result = 0;
         }
@@ -1952,7 +1964,7 @@ static uint8_t calculate_vertical_with_mods(chess_board_t board, figure_position
         temp_pos.pos_y = pos.pos_y + ver_mod;
         temp_pos.pos_x = pos.pos_x;
         ESP_LOG(INFO, TAG, "MODS: hor %d ver %d. Original: %d:%d temp modified: %d:%d", 1, ver_mod, pos.pos_y, pos.pos_x, temp_pos.pos_y, temp_pos.pos_x);
-        if (check_all_enemy_moves_for_pos(board, temp_pos) == ESP_ERR_NO_MEM){
+        if (check_all_enemy_moves_for_pos(board, temp_pos, true) == ESP_ERR_NO_MEM){
             ESP_LOG(INFO, TAG, "No possible attacks for pos %d:%d", temp_pos.pos_y, temp_pos.pos_x);
             result = 0;
         }
@@ -2229,7 +2241,11 @@ esp_err_t king_led_calculations(figure_position_t pos, uint8_t **led_array_ptr, 
 }
 
 
+static esp_err_t checkmate_check_for_colour() {
 
+
+    return ESP_OK;
+}
 
 // TODO: refactor this so showing leds would depend on that bool
 static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool show_leds, bool check_calculations){
@@ -2242,6 +2258,14 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
     if (access_lock()){
         current_figure = local_data.board.board[updated_pos.pos_y][updated_pos.pos_x].figure_type;
         check = local_data.check;
+
+        if (local_data.temp_led_array){
+            ESP_LOG(WARN, TAG, "FREE local_data.temp_led_array");
+            free(local_data.temp_led_array);
+            local_data.temp_led_array = NULL;
+        }
+        local_data.temp_counter = 0;
+
         release_lock();
     } else {
         return ESP_FAIL;
@@ -2652,11 +2676,15 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
                         if (check_calculations){
                             ESP_LOG(WARN, TAG, "King under possible attack from queen");
 
-                             if (led_array_ptr){
+                            local_data.temp_led_array = led_array_ptr;
+                            local_data.temp_counter = counter;
+                            /*
+                            if (led_array_ptr){
                                 ESP_LOG(WARN, TAG, "FREE led_array_ptr");
                                 free(led_array_ptr);
                                 led_array_ptr = NULL;
-                            }
+                            } 
+                            */
                             return ESP_ERR_NO_MEM;
 
                         }
@@ -2830,25 +2858,57 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
             ESP_LOG(ERROR, TAG, "NULL ptr");
         } else if (check){
 
-            ESP_LOG(INFO, TAG, "Check happened not this turn");
-
-            uint8_t traj_counter_paseed = local_data.trajectory_counter;
+            uint8_t traj_counter_passed = local_data.trajectory_counter;
 
             uint8_t valid_moves_counter = 0;
 
-            
-            for (int i = 0; i < counter; i++){
-                for (int j = 0; j < traj_counter_paseed; j++){
+            ESP_LOG(INFO, TAG, "Check happened not this turn");
 
-                    if (local_data.check_trajectory[j] == led_array_ptr[i]){
-                        ESP_LOG(INFO, TAG, "This move %d will protect king from check", led_array_ptr[i]);
-                        led_array_ptr[valid_moves_counter] = led_array_ptr[i];
-                        valid_moves_counter++;
-                            
+            ESP_LOG(INFO, TAG, "Passed traj counter %d", traj_counter_passed);
+
+            if (current_figure != FIGURE_KING || (current_figure == FIGURE_KING && traj_counter_passed == 1)) {
+
+                for (int i = 0; i < counter; i++){
+                    for (int j = 0; j < traj_counter_passed; j++){
+
+                        if (local_data.check_trajectory[j] == led_array_ptr[i]){
+                            ESP_LOG(INFO, TAG, "This move %d will protect king from check", led_array_ptr[i]);
+                            led_array_ptr[valid_moves_counter] = led_array_ptr[i];
+                            valid_moves_counter++;
+                                
+                        }
+
                     }
-
+                    
                 }
-                
+            } else if (current_figure == FIGURE_KING && traj_counter_passed > 1){
+               
+                bool did_not_match = true;
+
+                for (int i = 0; i < counter; i++){
+                    did_not_match = true;
+                    for (int j = 0; j < traj_counter_passed; j++){
+
+                        if (local_data.check_trajectory[j] == led_array_ptr[i]){
+                            did_not_match = false;
+                            ESP_LOG(WARN, TAG, "This move %d will not protect king from check", led_array_ptr[i]);
+
+                            for (int z = i; z < counter-1; z++){
+                                led_array_ptr[i] = led_array_ptr[i+1];
+                            }
+                            led_array_ptr[counter-1] = 0;
+                            counter--;
+                            i--;
+                            break;
+                                
+                        }
+
+                    }
+                    if (did_not_match){
+                        valid_moves_counter++;
+                    }
+                    
+                }
             }
             if (valid_moves_counter > 0){
                 
@@ -2876,6 +2936,7 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
             } else {
                 ESP_LOG(INFO, TAG, "No moves for this figure will protect king from check");
                 led_no_move_possible(MATRIX_TO_ARRAY_CONVERSION((updated_pos.pos_y), (updated_pos.pos_x)));
+                return ESP_ERR_INVALID_STATE;
             }
         } else if (!check){
         
@@ -2903,6 +2964,9 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
             free(led_array_ptr);
             led_array_ptr = NULL;
         }
+    } else {
+        ESP_LOG(WARN, TAG, "Check happened this turn. need to check if any enemy figures or moves can protect king from check");
+        if (checkmate_check_for_colour()){}
     }
     
     if (local_data.current_attackable) {
@@ -3028,7 +3092,7 @@ static void chess_engine_task(void *args){
                                 local_data.board.board[change_data.pos.pos_y][change_data.pos.pos_x].figure_type = FIGURE_END_LIST;
                                 
                                 
-                                if (check_all_enemy_moves_for_pos(board, find_king_by_colour(board, local_data.board.white_turn)) == ESP_ERR_NO_MEM){
+                                if (check_all_enemy_moves_for_pos(board, find_king_by_colour(board, local_data.board.white_turn), false) == ESP_ERR_NO_MEM){
                                     ESP_LOG(WARN, TAG, "Can't move this figure because it'll cause a checkmate");
                                     local_data.board.board[change_data.pos.pos_y][change_data.pos.pos_x] = local_data.board.board[temp_pos.pos_y][temp_pos.pos_x];
                                     local_data.board.board[temp_pos.pos_y][temp_pos.pos_x].led_op = NULL;

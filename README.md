@@ -33,3 +33,4 @@ Potentially usable: 5, 15, 2
 ### King vs king problem
 happens when the only figures on the board are 2 kings. Because of how `check_all_enemy_moves_for_pos()` function works.
 ### King not being able to move out of the check
+Note: looks like I've fixed it, but it's poorly tested. Might be really buggy
