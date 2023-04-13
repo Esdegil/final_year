@@ -1,8 +1,9 @@
 # final year project Vlad
 
-# version number v0.2
+# version number v1.0
 
-# Minimal requirements almost complete. Input matrix is connected with chess engine and led service.
+## v1.0 Minimal requirements complete. Implemented game engine with some things still left to do.
+## v0.2-0.3 Minimal requirements almost complete. Input matrix is connected with chess engine and led service.
 
 ## The plan is to merge dev to master once in a week with following notation vX.Y
 ### Y will be changed weekly and X should be changed with major updates such as finishing minimal requirements, etc.
@@ -23,3 +24,18 @@ If a component needs some code from the same level it needs to be added in SRCS 
 Better add new componends with idf.py add-component <>
 
 // TODO: Change these terminal instructions to be something faster usable.
+
+# Usable pins (tested)
+Input/output: 32, 33, 25, 26, 27, 23, 22, 21, 19, 18, 12 (needs gpio_reset_pin), 13 (needs gpio_reset_pin), 14 (needs gpio_reset_pin), 16 (looks like it doesn't need anything else), 17 (looks like it doesn't need anything else), 4 (looks like it doesn't need anything else) \
+Input only: 34, 35, 39 (VN), 36 (VP) \
+Potentially usable: 5, 15, 2
+
+# Important TODOs and known problems
+### King vs king problem
+happens when the only figures on the board are 2 kings. Because of how `check_all_enemy_moves_for_pos()` function works.
+### Requires passing (pawn turning into queen)
+Conditions are done. implementation needed
+### Requires castle option.
+Not sure if can be done before moving to 8x8 board.
+### King not being able to move out of the check (solved in 1.0)
+Note: looks like I've fixed it, but it's poorly tested. Might be really buggy

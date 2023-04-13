@@ -1,0 +1,13 @@
+menu "User Config Settings"
+
+config DISPLAY_USED
+	bool "Display is used"
+	default false
+config LED_STRIP_USED
+	bool "Led strip is used"
+	default false
+config BREADBOARD_LED_SETUP
+	depends on LED_STRIP_USED
+	bool "Breadboard led strip layout used"
+	default false
+endmenu

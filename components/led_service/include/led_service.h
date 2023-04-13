@@ -8,6 +8,9 @@ esp_err_t led_service_init();
 
 esp_err_t led_op_pawn(uint8_t *arr, uint8_t counter);
 
+esp_err_t led_clear_stripe();
+esp_err_t led_no_move_possible(uint8_t position);
+
 esp_err_t led_test();
 esp_err_t led_test2();
 esp_err_t led_test3();

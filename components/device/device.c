@@ -14,7 +14,7 @@ typedef struct local_data{
 
     SemaphoreHandle_t lock;
 
-    bool switch_matrix[MATRIX_X+1][MATRIX_Y+1];
+    bool switch_matrix[MATRIX_X][MATRIX_Y];
 
 } local_data_t;
 
@@ -61,6 +61,9 @@ esp_err_t device_init(){
             local_data.switch_matrix[i][j] = false;
         }
     }
+    
+    
+    
     ESP_LOG(ERROR, TAG, "Before assigning %d", local_data.initialised);
 
     local_data.initialised = true;
@@ -94,19 +97,23 @@ static void print_array(){
     }
 }
 
-#define IN_PIN_1 32
-#define IN_PIN_2 33
-#define IN_PIN_3 25
+#define OUT_PIN_1 32
+#define OUT_PIN_2 33
+#define OUT_PIN_3 25
+#define OUT_PIN_4 26
 
-#define OUT_PIN_1 26
-#define OUT_PIN_2 27
-#define OUT_PIN_3 23
+#define IN_PIN_1 34
+#define IN_PIN_2 36
+#define IN_PIN_3 39
+#define IN_PIN_4 35
 
+#define START_BUTTON_OUT_PIN 23
+#define START_BUTTON_IN_PIN 18
 
 int pin_amount = 2;
 
-int pins[4] = {32, 33, 25};
-int out_pins[4] = {26, 27, 23};
+int out_pins[4] = {32, 33, 25, 26};
+int in_pins[4] = {36, 39, 34, 35};
 
 static void device_task(){
 
@@ -129,21 +136,45 @@ static void device_task(){
      
     }*/
 
+    vTaskDelay(2000/portTICK_PERIOD_MS);
+
+    gpio_reset_pin(IN_PIN_1);
+    gpio_reset_pin(IN_PIN_2);
+    gpio_reset_pin(IN_PIN_3);
+    gpio_reset_pin(IN_PIN_4);
+
+    gpio_reset_pin(OUT_PIN_1);
+    gpio_reset_pin(OUT_PIN_2);
+    gpio_reset_pin(OUT_PIN_3);
+    gpio_reset_pin(OUT_PIN_4);
+
     gpio_set_pull_mode(IN_PIN_1, GPIO_PULLDOWN_ONLY);
     gpio_set_pull_mode(IN_PIN_2, GPIO_PULLDOWN_ONLY);
     gpio_set_pull_mode(IN_PIN_3, GPIO_PULLDOWN_ONLY);
-    gpio_set_pull_mode(OUT_PIN_1, GPIO_PULLDOWN_ONLY);
-    gpio_set_pull_mode(OUT_PIN_2, GPIO_PULLDOWN_ONLY);
-    gpio_set_pull_mode(OUT_PIN_3, GPIO_PULLDOWN_ONLY);
+    gpio_set_pull_mode(IN_PIN_4, GPIO_PULLDOWN_ONLY);
+    //gpio_set_pull_mode(OUT_PIN_1, GPIO_PULLDOWN_ONLY);
+    //gpio_set_pull_mode(OUT_PIN_2, GPIO_PULLDOWN_ONLY);
+    //gpio_set_pull_mode(OUT_PIN_3, GPIO_PULLDOWN_ONLY);
 
+    
 
-    gpio_set_direction(IN_PIN_1, GPIO_MODE_OUTPUT);
-    gpio_set_direction(IN_PIN_2, GPIO_MODE_OUTPUT);
-    gpio_set_direction(IN_PIN_3, GPIO_MODE_OUTPUT);
-    gpio_set_direction(OUT_PIN_1, GPIO_MODE_INPUT);
-    gpio_set_direction(OUT_PIN_2, GPIO_MODE_INPUT);
-    gpio_set_direction(OUT_PIN_3, GPIO_MODE_INPUT);
+    gpio_set_direction(IN_PIN_1, GPIO_MODE_INPUT);
+    gpio_set_direction(IN_PIN_2, GPIO_MODE_INPUT);
+    gpio_set_direction(IN_PIN_3, GPIO_MODE_INPUT);
+    gpio_set_direction(IN_PIN_4, GPIO_MODE_INPUT);
+    gpio_set_direction(OUT_PIN_1, GPIO_MODE_OUTPUT);
+    gpio_set_direction(OUT_PIN_2, GPIO_MODE_OUTPUT);
+    gpio_set_direction(OUT_PIN_3, GPIO_MODE_OUTPUT);
+    gpio_set_direction(OUT_PIN_4, GPIO_MODE_OUTPUT);
 
+    gpio_reset_pin(START_BUTTON_OUT_PIN);
+    gpio_reset_pin(START_BUTTON_IN_PIN);
+
+    gpio_set_pull_mode(START_BUTTON_OUT_PIN, GPIO_PULLDOWN_ONLY);
+    gpio_set_pull_mode(START_BUTTON_IN_PIN, GPIO_PULLDOWN_ONLY);
+    
+    gpio_set_direction(START_BUTTON_OUT_PIN, GPIO_MODE_OUTPUT);
+    gpio_set_direction(START_BUTTON_IN_PIN, GPIO_MODE_INPUT);
 
 #ifdef TEST
     gpio_set_pull_mode(22, GPIO_PULLDOWN_ONLY);
@@ -174,37 +205,89 @@ static void device_task(){
     }
 #endif
 
-    figure_position_t changed_state_figure;
+    bool ready_to_start = false;
+    uint8_t start_level = 0;
 
+    if (device_set_pin_level(START_BUTTON_OUT_PIN, 1) != ESP_OK){
+        ESP_LOG(ERROR, TAG, "Failed to set start button out to 1");
+    } else {
+        ESP_LOG(INFO, TAG, "Set successfully");
+    }
+
+    while(!ready_to_start){
+        device_get_pin_level(START_BUTTON_IN_PIN, &start_level);
+        ready_to_start = start_level ? true : false;
+    
+
+
+        for(int i = 0; i < MATRIX_X; i++){
+                for (int j = 0; j < MATRIX_Y; j++){
+
+                    device_set_pin_level(out_pins[j], 0);
+                }
+                device_set_pin_level(out_pins[i], 1);
+                vTaskDelay(80/portTICK_PERIOD_MS);
+                for (int j = 0; j < MATRIX_Y; j++){
+                    device_get_pin_level(in_pins[j], &level); 
+                    // TODO: double check about this reversed order
+                    if ((bool)level != local_data.switch_matrix[i][j]){
+                        ESP_LOG(WARN, TAG, "Change detected at pin %d  with pin %d set. at level %d array id %d:%d", in_pins[j], out_pins[i], level, i, j);
+                        vTaskDelay(500/portTICK_PERIOD_MS);
+                        device_get_pin_level(in_pins[j], &level);
+
+                        if ((bool)level != local_data.switch_matrix[i][j]){
+                            ESP_LOG(WARN, TAG, "Change detected again at pin %d  with pin %d set. at level %d array id %d:%d", in_pins[j], out_pins[i], level, i, j);
+                        
+                            local_data.switch_matrix[i][j] = level ? true : false;
+                            print_array();  
+                        }  
+                    }
+                    //ESP_LOG(WARN, TAG, "Pin %d  pos %d level %d", in_pins[j], j, level);
+                    
+                }
+            }
+
+    }
+    device_set_pin_level(START_BUTTON_OUT_PIN, 0);
+    ESP_LOG(INFO, TAG, "STARTING GAME");
+    state_change_data_t changed_state_figure;
     while(1){
 
         for(int i = 0; i < MATRIX_X; i++){
             for (int j = 0; j < MATRIX_Y; j++){
 
-                device_set_pin_level(pins[j], 0);
+                device_set_pin_level(out_pins[j], 0);
             }
-            device_set_pin_level(pins[i], 1);
+            vTaskDelay(80/portTICK_PERIOD_MS);
+            device_set_pin_level(out_pins[i], 1);
             for (int j = 0; j < MATRIX_Y; j++){
-                device_get_pin_level(out_pins[j], &level);
+                device_get_pin_level(in_pins[j], &level); 
+                // TODO: double check about this reversed order
                 if ((bool)level != local_data.switch_matrix[i][j]){
-                    ESP_LOG(WARN, TAG, "Change detected at pin %d at level %d", out_pins[i], level);
-                    local_data.switch_matrix[i][j] = level ? true : false;
-                    changed_state_figure.pos_x = i;
-                    changed_state_figure.pos_y = j;
-                    if (update_board_on_lift(changed_state_figure) != ESP_OK){
-                        ESP_LOG(ERROR, TAG, "Failed to update chess engine from device service");
+                    ESP_LOG(WARN, TAG, "Change detected at pin %d  with pin %d set. at level %d array id %d:%d", in_pins[j], out_pins[i], level, i, j);
+                    vTaskDelay(500/portTICK_PERIOD_MS);
+                    device_get_pin_level(in_pins[j], &level);
+
+                    if ((bool)level != local_data.switch_matrix[i][j]){
+                        ESP_LOG(WARN, TAG, "Change detected again at pin %d  with pin %d set. at level %d array id %d:%d", in_pins[j], out_pins[i], level, i, j);
+                        local_data.switch_matrix[i][j] = level ? true : false;
+                        changed_state_figure.lifted = !level; // TODO: double check this
+                        changed_state_figure.pos.pos_x = j;
+                        changed_state_figure.pos.pos_y = i;
+                        print_array();
+                        if (update_board_on_lift(changed_state_figure) != ESP_OK){
+                            ESP_LOG(ERROR, TAG, "Failed to update chess engine from device service");
+                        }
                     }
                 }
-                ESP_LOG(WARN, TAG, "Pin %d  pos %d level %d", out_pins[i], j, level);
-                print_array();
+                //ESP_LOG(WARN, TAG, "Pin %d  pos %d level %d", in_pins[i], j, level);
+                
             }
         }
         
-        /*ESP_LOG(INFO, TAG, "Testing task.");
-        vTaskDelay(1000/portTICK_PERIOD_MS);*/
-    vTaskDelay(5000/portTICK_PERIOD_MS);
+    vTaskDelay(1000/portTICK_PERIOD_MS);
     }
-
+    
 
 }
 
@@ -213,12 +296,12 @@ static void device_task(){
 esp_err_t device_get_pin_level(int pin, uint8_t *level){
     *level = gpio_get_level(pin);
     
-    ESP_LOG(INFO, TAG, "reading pin %d level %d", pin, *level);
+    //ESP_LOG(INFO, TAG, "reading pin %d level %d", pin, *level);
     return ESP_OK;
 }
 
 esp_err_t device_set_pin_level(int pin, uint8_t level) {
-    ESP_LOG(INFO, TAG,"setting pin %d to level %d", pin, level);
+    //ESP_LOG(INFO, TAG,"setting pin %d to level %d", pin, level);
     if (gpio_set_level(pin, level) != ESP_OK){
         ESP_LOG(ERROR, TAG, "error occured");
         return ESP_FAIL;

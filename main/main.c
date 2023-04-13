@@ -14,6 +14,7 @@
 #include "device.h"
 #include "led_service.h"
 #include "chess_engine.h"
+#include "display_service.h"
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -30,8 +31,8 @@
 
 #define TEST_PIN 34
 #define TAG "MAIN"
-#define VERSION_NUMBER_X 0
-#define VERSION_NUMBER_Y 2
+#define VERSION_NUMBER_X 1
+#define VERSION_NUMBER_Y 0
 
 //#define LED_TEST
 
@@ -62,22 +63,32 @@ esp_err_t init_services(){
 
     ESP_LOG(WARN, TAG, "Initialising services...");
 
-     if (led_service_init() != ESP_OK){
-        ESP_LOG(ERROR, TAG, "Failed to init one of the services. Aborting.");
+#ifdef CONFIG_LED_STRIP_USED
+    if (led_service_init() != ESP_OK){
+        ESP_LOG(ERROR, TAG, "Failed to init led service. Aborting.");
         return ESP_FAIL;
     }
+#endif
 
     if (device_init() != ESP_OK){
-        ESP_LOG(ERROR, TAG, "Failed to init one of the services. Aborting.");
+        ESP_LOG(ERROR, TAG, "Failed to init device service. Aborting.");
         return ESP_FAIL;
     }
     if (chess_engine_init() != ESP_OK){
-        ESP_LOG(ERROR, TAG, "Failed to init one of the services. Aborting.");
+        ESP_LOG(ERROR, TAG, "Failed to init chess engine service. Aborting.");
         return ESP_FAIL;
     }
+#ifdef CONFIG_DISPLAY_USED
+    if (display_service_init() != ESP_OK) {
+        ESP_LOG(ERROR, TAG, "Failed to init display service. Aborting.");
+        return ESP_FAIL;
+    }
+#endif
+
     return ESP_OK;
 }
 
+#ifdef WORKING_ON_EVENTS
 static void main_event_handler(void* handler_args, esp_event_base_t base, int32_t id, void* event_data){
 
    /* if (!args){
@@ -93,7 +104,7 @@ static void main_event_handler(void* handler_args, esp_event_base_t base, int32_
 
 
 }
-
+#endif
 void app_main(void)
 {
     ESP_LOG(INFO, TAG,"This is Vlads Final Year Project!̣");
@@ -137,7 +148,7 @@ void app_main(void)
     gpio_set_direction(GPIO_NUM_21, GPIO_MODE_OUTPUT);
 
     // TESTING EVENTS
-
+#ifdef WORKING_ON_EVENTS
     esp_event_loop_args_t loop_without_args = {
         .queue_size = 5,
         .task_name = NULL
@@ -153,6 +164,7 @@ void app_main(void)
     ret = esp_event_handler_register(TEST_EVENTS, EVENT_MATRIX_SWITCH_CLOSED, main_event_handler, NULL);
 
     ESP_LOG(ERROR, TAG, "Error code: %d", ret);
+#endif
 
     uint8_t level = 15;
     gpio_num_t num = GPIO_NUM_34;
@@ -170,7 +182,7 @@ void app_main(void)
     ESP_LOG(ERROR, TAG, "This is a test message with argument: %d", TEST_VALUE);
     ESP_LOG(INFO, TAG, "Another test multiple args %d %d", 99, 23);
 
-
+#ifdef WORKING_ON_EVENTS
     ESP_LOG(WARN, TAG, "Entering main loop. Posting test event");
 
     if (local_data.handle == NULL){
@@ -180,15 +192,23 @@ void app_main(void)
     if (esp_event_post_to(local_data.handle, TEST_EVENTS, EVENT_MATRIX_SWITCH_CLOSED, NULL, 0, portMAX_DELAY) != ESP_OK) {
         ESP_LOG(ERROR, TAG, "Failed to post event");
     }
+#endif
 
+#ifdef CONFIG_DISPLAY_USED
+    ESP_LOG(WARN, TAG, "Is display used: %d:%s", CONFIG_DISPLAY_USED, CONFIG_DISPLAY_USED ? "true" : "false");
+#else
+    ESP_LOG(WARN, TAG, "Display is set to be not used");
+#endif
     while(1) {
 
+#ifdef WORKING_ON_EVENTS
         ret = esp_event_post(TEST_EVENTS, EVENT_MATRIX_SWITCH_CLOSED, NULL, 0, portMAX_DELAY); 
         if (ret == ESP_OK){
             ESP_LOG(INFO, TAG, "Posted test event");
         } else {
             ESP_LOG(ERROR, TAG, "Failed to post event. ret: %d", ret);
         }
+#endif
 
         /*if (esp_event_post_to(local_data.handle, TEST_EVENTS, EVENT_MATRIX_SWITCH_CLOSED, NULL, 0, portMAX_DELAY) != ESP_OK) {
             ESP_LOG(ERROR, TAG, "Failed to post event");
@@ -206,6 +226,7 @@ void app_main(void)
         led_test2();
         vTaskDelay(1000 / portTICK_PERIOD_MS);
         led_test3();
+        vTaskDelay(10000/portTICK_PERIOD_MS);
 #endif
     }
 
