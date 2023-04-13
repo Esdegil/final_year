@@ -31,8 +31,8 @@
 
 #define TEST_PIN 34
 #define TAG "MAIN"
-#define VERSION_NUMBER_X 0
-#define VERSION_NUMBER_Y 2
+#define VERSION_NUMBER_X 1
+#define VERSION_NUMBER_Y 0
 
 //#define LED_TEST
 
