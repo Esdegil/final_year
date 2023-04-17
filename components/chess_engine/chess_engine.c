@@ -76,6 +76,7 @@ static bool release_lock();
 
 static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool show_leds, bool check_calculations);
 
+
 esp_err_t chess_engine_init(){
 
      if (local_data.initialised){
@@ -132,19 +133,11 @@ esp_err_t chess_engine_init(){
         local_data.board.board[0][2].white = true;
         local_data.board.board[0][3].white = true;
 
-        local_data.board.board[0][0].pos_x = 0;
-        local_data.board.board[0][0].pos_y = 0;
 
-        local_data.board.board[0][1].pos_x = 1;
-        local_data.board.board[0][1].pos_y = 0;
-
-        local_data.board.board[0][2].pos_x = 2;
-        local_data.board.board[0][2].pos_y = 0;
-
-        local_data.board.board[0][0].led_op = &led_op_pawn;
-        local_data.board.board[0][1].led_op = &led_op_pawn;
-        local_data.board.board[0][2].led_op = &led_op_pawn;
-        local_data.board.board[0][3].led_op = &led_op_pawn;
+        local_data.board.board[0][0].led_op = &led_op_general;
+        local_data.board.board[0][1].led_op = &led_op_general;
+        local_data.board.board[0][2].led_op = &led_op_general;
+        local_data.board.board[0][3].led_op = &led_op_general;
 
 
         
@@ -160,19 +153,11 @@ esp_err_t chess_engine_init(){
         local_data.board.board[3][2].white = false;
         local_data.board.board[3][3].white = false;
 
-        local_data.board.board[3][0].pos_x = 0;
-        local_data.board.board[3][0].pos_y = 2;
 
-        local_data.board.board[3][1].pos_x = 1;
-        local_data.board.board[3][1].pos_y = 2;
-
-        local_data.board.board[3][2].pos_x = 2;
-        local_data.board.board[3][2].pos_y = 2;
-
-        local_data.board.board[3][0].led_op = &led_op_pawn;
-        local_data.board.board[3][1].led_op = &led_op_pawn;
-        local_data.board.board[3][2].led_op = &led_op_pawn;
-        local_data.board.board[3][3].led_op = &led_op_pawn;
+        local_data.board.board[3][0].led_op = &led_op_general;
+        local_data.board.board[3][1].led_op = &led_op_general;
+        local_data.board.board[3][2].led_op = &led_op_general;
+        local_data.board.board[3][3].led_op = &led_op_general;
 
     // Rest of the board
 
@@ -184,7 +169,7 @@ esp_err_t chess_engine_init(){
 
         local_data.board.board[1][1].white = true;
 
-        local_data.board.board[1][1].led_op = &led_op_pawn;
+        local_data.board.board[1][1].led_op = &led_op_general;
 
         local_data.board.board[1][0].pos_x = 0;
         local_data.board.board[1][0].pos_y = 1;
@@ -209,7 +194,7 @@ esp_err_t chess_engine_init(){
 
         local_data.board.board[2][2].white = false;
 
-        local_data.board.board[2][2].led_op = &led_op_pawn;
+        local_data.board.board[2][2].led_op = &led_op_general;
         */
 
         /*
@@ -217,7 +202,7 @@ esp_err_t chess_engine_init(){
 
         local_data.board.board[1][2].white = true;
 
-        local_data.board.board[1][3].led_op = &led_op_pawn;
+        local_data.board.board[1][3].led_op = &led_op_general;
         */
 
 
@@ -226,21 +211,21 @@ esp_err_t chess_engine_init(){
 
         local_data.board.board[1][2].white = true;
 
-        local_data.board.board[1][2].led_op = &led_op_pawn;
+        local_data.board.board[1][2].led_op = &led_op_general;
         
 
         local_data.board.board[2][0].figure_type = FIGURE_QUEEN;
 
         local_data.board.board[2][0].white = false;
 
-        local_data.board.board[2][0].led_op = &led_op_pawn;
+        local_data.board.board[2][0].led_op = &led_op_general;
 
         /*
         local_data.board.board[2][3].figure_type = FIGURE_BISHOP;
 
         local_data.board.board[2][3].white = false;
 
-        local_data.board.board[2][3].led_op = &led_op_pawn;
+        local_data.board.board[2][3].led_op = &led_op_general;
         */
 
     }
@@ -2294,7 +2279,6 @@ static esp_err_t checkmate_check(figure_position_t pos) {
     return ESP_OK;
 }
 
-// TODO: refactor this so showing leds would depend on that bool
 static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool show_leds, bool check_calculations){
     
     chess_figures_t current_figure;
@@ -2333,8 +2317,8 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
 
     uint8_t traj_counter = 0;
 
-    // TODO: add error handling
-    switch (current_figure){ // TODO: update all the functions the same way as with rook
+
+    switch (current_figure){ 
         case FIGURE_PAWN:
             if (pawn_led_calculation(updated_pos, &led_array_ptr, &counter) != ESP_OK){
 
@@ -2469,7 +2453,7 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
                             }
                         } else if (mod_x != 0){
                             for (int j = updated_pos.pos_x + mod_x; j != king_pos.pos_x; j += mod_x){
-                                //led_array_ptr[traj_counter] = MATRIX_TO_ARRAY_CONVERSION((updated_pos.pos_y), j);
+                                
                                 ESP_LOG(WARN, TAG, "REALLOC");
                                 modified_led_array_ptr = (uint8_t*)realloc(modified_led_array_ptr, ((traj_counter+1)*(sizeof(uint8_t))));
                                 
@@ -2507,10 +2491,6 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
                         traj_counter++;
 
                         ESP_LOG(WARN, TAG, "Added %d or %d:%d to led_array_ptr", MATRIX_TO_ARRAY_CONVERSION((updated_pos.pos_y), (updated_pos.pos_x)), updated_pos.pos_y, updated_pos.pos_x);
-
-                        
-
-                        //memcpy(&local_data.check_trajectory, &modified_led_array_ptr, (traj_counter * (sizeof(uint8_t))));
 
                         local_data.check_trajectory = modified_led_array_ptr;
 
@@ -2590,9 +2570,6 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
                             ESP_LOG(INFO, TAG, "Mod led array ptr %d", modified_led_array_ptr[j]);
                         }
 
-                        
-
-                        //memcpy(&local_data.check_trajectory, &modified_led_array_ptr, (traj_counter * (sizeof(uint8_t))));
 
                         local_data.check_trajectory = modified_led_array_ptr;
 
@@ -2962,7 +2939,8 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
                 ESP_LOG(INFO, TAG, "Valid moves num %d", valid_moves_counter);
                 if (show_leds){
                     ESP_LOG(INFO, TAG, "Showing LEDS");
-                    local_data.board.board[updated_pos.pos_y][updated_pos.pos_x].led_op(led_array_ptr, valid_moves_counter);
+                    bool white = local_data.board.board[updated_pos.pos_y][updated_pos.pos_x].white;
+                    local_data.board.board[updated_pos.pos_y][updated_pos.pos_x].led_op(led_array_ptr, valid_moves_counter, white);
                 }
             } else {
                 ESP_LOG(INFO, TAG, "No moves for this figure will protect king from check");
@@ -2981,7 +2959,8 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
             }
             if (show_leds){
                 ESP_LOG(INFO, TAG, "Showing LEDS");
-                local_data.board.board[updated_pos.pos_y][updated_pos.pos_x].led_op(led_array_ptr, counter);
+                bool white = local_data.board.board[updated_pos.pos_y][updated_pos.pos_x].white;
+                local_data.board.board[updated_pos.pos_y][updated_pos.pos_x].led_op(led_array_ptr, counter, white);
             }
 
             
@@ -3004,6 +2983,7 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
         }
     } else {
         ESP_LOG(WARN, TAG, "Check happened this turn. need to check if any enemy figures or moves can protect king from check");
+        display_send_message_to_display("Check!");
         if (checkmate_check(updated_pos) != ESP_OK){
             ESP_LOG(ERROR, TAG, "No possible moves left to do");
             local_data.checkmate = true;
@@ -3045,6 +3025,13 @@ static figure_position_t find_king_by_colour(chess_board_t board, bool white){
 
 }
 
+static void send_checking_matrix_to_device_service() {
+   
+
+    device_receive_required_positions(local_data.board);
+
+}
+
 static void chess_engine_task(void *args){
 
     
@@ -3077,6 +3064,26 @@ static void chess_engine_task(void *args){
 
     bool checkmate = false;
 
+    send_checking_matrix_to_device_service();
+
+    if (display_send_message_to_display("Waiting for game to be setup and started") != ESP_OK){
+            ESP_LOG(ERROR, TAG, "Failed to post turn data to display");
+        }
+
+    EventBits_t bits;
+    while(1) {
+        bits = xEventGroupWaitBits(local_data.event_handle, BOARD_READY_BIT_0, pdTRUE, pdTRUE, SECOND_TICK);
+        if ((bits & BOARD_READY_BIT_0) != 0){
+            ESP_LOG(INFO, TAG, "Board is set! Starting game");
+            break;
+        }
+    }
+
+    if (local_data.board.white_turn){
+        if (display_send_message_to_display("white turn now!") != ESP_OK){
+            ESP_LOG(ERROR, TAG, "Failed to post turn data to display");
+        }
+    }
     while(1){
 
         if (access_lock()){
@@ -3090,6 +3097,9 @@ static void chess_engine_task(void *args){
 
         if (checkmate){
             ESP_LOG(WARN, TAG, "CHECKMATE. Game is over");
+            if (display_send_message_to_display("CHECKMATE") != ESP_OK){
+                ESP_LOG(ERROR, TAG, "Failed to post chechmate message to display queue");
+            }
             break;
         }
 
@@ -3221,6 +3231,30 @@ static void chess_engine_task(void *args){
                                 local_data.board.white_turn = !local_data.board.white_turn; // Changing turns
                                 ESP_LOG(INFO, TAG, "%s turn now!", local_data.board.white_turn ? "white" : "black");
 
+                                char *colour;
+                                if (local_data.board.white_turn){
+                                    colour = "white";
+                                } else {
+                                    colour = "black";
+                                }
+                                //char colour[5] = local_data.board.white_turn ? "white" : "black";
+                                char rest[] = " turn now!";
+
+                                uint8_t colour_length = strlen(colour);
+                                uint8_t rest_length = strlen(rest);
+
+                                char full_message[(colour_length + rest_length + 1)]; 
+                                memset(full_message, 0, colour_length + rest_length);
+
+                                strcat(full_message, colour);
+                                strcat(full_message, rest);
+
+                                ESP_LOG(WARN, TAG, "Message %s", full_message);
+
+                                if (display_send_message_to_display(full_message) != ESP_OK){
+                                    ESP_LOG(ERROR, TAG, "Failure on posting message to device service");
+                                }
+
                                 led_clear_stripe();
 
                             } else {
@@ -3262,6 +3296,30 @@ static void chess_engine_task(void *args){
 
                             local_data.board.white_turn = !local_data.board.white_turn; // Changing turns
                             ESP_LOG(INFO, TAG, "%s turn now!", local_data.board.white_turn ? "white" : "black");
+                            char *colour;
+                            if (local_data.board.white_turn){
+                                colour = "white";
+                            } else {
+                                colour = "black";
+                            }
+                            //char colour[5] = local_data.board.white_turn ? "white" : "black";
+                            char rest[] = " turn now!";
+
+                            uint8_t colour_length = strlen(colour);
+                            uint8_t rest_length = strlen(rest);
+
+                            char full_message[(colour_length + rest_length + 1)]; 
+                            memset(full_message, 0, colour_length + rest_length);
+
+                            strcat(full_message, colour);
+                            strcat(full_message, rest);
+
+                            ESP_LOG(WARN, TAG, "Message %s", full_message);
+
+                            if (display_send_message_to_display(full_message) != ESP_OK){
+                                ESP_LOG(ERROR, TAG, "Failure on posting message to device service");
+                            }
+
                             attacking = false;
 
                             led_clear_stripe();
@@ -3284,110 +3342,6 @@ static void chess_engine_task(void *args){
                     
                     local_data.last_change_data = change_data;
                     
-                    
-                    
-                    /*if (change_data.pos.pos_y != local_data.last_change_data.pos.pos_y || change_data.pos.pos_x != local_data.last_change_data.pos.pos_x){ 
-
-                        if (!last_figure_lifted && board.board[change_data.pos.pos_y][change_data.pos.pos_x].figure_type != FIGURE_END_LIST && board.board[change_data.pos.pos_y][change_data.pos.pos_x].white && !board.white_turn) {
-                            allowed_to_do_move = false;
-                            ESP_LOG(ERROR, TAG, "Not white turn");
-                            led_no_move_possible(MATRIX_TO_ARRAY_CONVERSION(change_data.pos.pos_y, change_data.pos.pos_x));
-                            // TODO: something here
-                        }
-                        // TODO: this if needs to be changed
-                        if (!last_figure_lifted && board.board[change_data.pos.pos_y][change_data.pos.pos_x].figure_type != FIGURE_END_LIST && !board.board[change_data.pos.pos_y][change_data.pos.pos_x].white && board.white_turn) {
-                            ESP_LOG(ERROR, TAG, "Not black turn");
-                            allowed_to_do_move = false;
-                            led_no_move_possible(MATRIX_TO_ARRAY_CONVERSION(change_data.pos.pos_y, change_data.pos.pos_x));
-                            // TODO; add something here
-                        }
-                        if (allowed_to_do_move){
-                            // moving to empty cell
-                            if (local_data.board.board[change_data.pos.pos_y][change_data.pos.pos_x].figure_type == FIGURE_END_LIST){ // moving previously lifted figure onto empty square
-                                // TODO: below code needs to be changed when I'll switch to reed switches
-                                //if (local_data.last_change_data.lifted != change_data.lifted && !change_data.lifted){
-                                    // means a figure previously lifted was put down on empty cell
-                                    local_data.board.board[change_data.pos.pos_y][change_data.pos.pos_x] = local_data.board.board[local_data.last_change_data.pos.pos_y][local_data.last_change_data.pos.pos_x];
-                                    local_data.board.board[local_data.last_change_data.pos.pos_y][local_data.last_change_data.pos.pos_x].led_op = NULL;
-                                    local_data.board.board[local_data.last_change_data.pos.pos_y][local_data.last_change_data.pos.pos_x].figure_type = FIGURE_END_LIST;
-                                    // TODO: really double check above
-
-                                    
-                                    
-                                    ESP_LOG(WARN, TAG, "Figure was moved from %d:%d to %d:%d", local_data.last_change_data.pos.pos_y, local_data.last_change_data.pos.pos_x, change_data.pos.pos_y, change_data.pos.pos_x);
-                                    
-                                    local_data.board.white_turn = !local_data.board.white_turn; // Changing turns
-                                    ESP_LOG(INFO, TAG, "%s turn now!", local_data.board.white_turn ? "white" : "black");
-                                //}
-
-                            //attacking
-                            } else if (board.board[change_data.pos.pos_y][change_data.pos.pos_x].figure_type != FIGURE_END_LIST && !attacking){
-                                
-                                if (change_data.lifted && local_data.last_change_data.lifted){
-                                    if (board.board[local_data.last_change_data.pos.pos_y][local_data.last_change_data.pos.pos_x].white != board.board[change_data.pos.pos_y][change_data.pos.pos_x].white) {
-                                        attacking_figure_initial_position = local_data.last_change_data.pos;
-                                        ESP_LOG(WARN, TAG, "Attacking figure position %d:%d", attacking_figure_initial_position.pos_y, attacking_figure_initial_position.pos_x);
-                                        attacking = true;
-                                    }
-                                }
-                                if (change_data.lifted && !local_data.last_change_data.lifted) {
-                                    required_leds_calculation(change_data.pos);
-                                    // TODO: maybe this needs to be moved
-                                    
-                                }
-
-                                local_data.last_change_data = change_data;
-
-                            } 
-                        }
-                    } else { // Indicates that the same figure was put down or lifted
-                        if (!change_data.lifted && !attacking){
-                            ESP_LOG(INFO, TAG, "Same figure put down");
-                            if (led_clear_stripe() != ESP_OK){
-                                ESP_LOG(ERROR, TAG, "Failed to clear led stripe");
-                            }
-                        } else {
-
-                            
-                            allowed_to_do_move = true;
-                            last_figure_lifted = local_data.last_change_data.lifted;
-
-                            allowed_to_do_move = (board.board[change_data.pos.pos_y][change_data.pos.pos_x].white == board.white_turn) 
-
-                            if (!last_figure_lifted && board.board[change_data.pos.pos_y][change_data.pos.pos_x].figure_type != FIGURE_END_LIST && board.board[change_data.pos.pos_y][change_data.pos.pos_x].white && !board.white_turn) {
-                                allowed_to_do_move = false;
-                                ESP_LOG(ERROR, TAG, "Not white turn else");
-                                led_no_move_possible(MATRIX_TO_ARRAY_CONVERSION(change_data.pos.pos_y, change_data.pos.pos_x));
-                                // TODO: something here
-                            }
-                            // TODO: this if needs to be changed
-                            if (!last_figure_lifted && board.board[change_data.pos.pos_y][change_data.pos.pos_x].figure_type != FIGURE_END_LIST && !board.board[change_data.pos.pos_y][change_data.pos.pos_x].white && board.white_turn) {
-                                ESP_LOG(ERROR, TAG, "Not black turn else ");
-                                allowed_to_do_move = false;
-                                led_no_move_possible(MATRIX_TO_ARRAY_CONVERSION(change_data.pos.pos_y, change_data.pos.pos_x));
-                                // TODO; add something here
-                            }
-
-                            if (attacking && allowed_to_do_move){
-                                ESP_LOG(WARN, TAG, "Figure %d on %d:%d was attacked by %d from %d:%d", local_data.board.board[change_data.pos.pos_y][change_data.pos.pos_x].figure_type, change_data.pos.pos_y, change_data.pos.pos_x, local_data.board.board[attacking_figure_initial_position.pos_y][attacking_figure_initial_position.pos_x].figure_type, attacking_figure_initial_position.pos_y, attacking_figure_initial_position.pos_x);
-                                
-                                local_data.board.board[change_data.pos.pos_y][change_data.pos.pos_x] = local_data.board.board[attacking_figure_initial_position.pos_y][attacking_figure_initial_position.pos_x];
-                                local_data.board.board[attacking_figure_initial_position.pos_y][attacking_figure_initial_position.pos_x].figure_type = FIGURE_END_LIST;
-                                local_data.board.board[attacking_figure_initial_position.pos_y][attacking_figure_initial_position.pos_x].led_op = NULL;
-                                local_data.board.white_turn = !local_data.board.white_turn; // Changing turns
-                                ESP_LOG(INFO, TAG, "%s turn now!", local_data.board.white_turn ? "white" : "black");
-                                attacking = false;
-                            } else if (allowed_to_do_move){
-                                // TODO: really think about this
-                                ESP_LOG(WARN, TAG, "Same figure lifted");
-                                required_leds_calculation(change_data.pos);
-                                local_data.last_change_data = change_data;
-                                
-                            }
-                            
-                        }
-                    }
-                }*/
             }
 
             
@@ -3396,6 +3350,10 @@ static void chess_engine_task(void *args){
     }
 }
 
+esp_err_t chess_engine_device_service_ready(){
+    xEventGroupSetBits(local_data.event_handle, BOARD_READY_BIT_0);
+    return ESP_OK;
+}
 
 esp_err_t update_board_on_lift(state_change_data_t data) {
 
@@ -3408,7 +3366,7 @@ esp_err_t update_board_on_lift(state_change_data_t data) {
             release_lock();
             return ESP_FAIL;
         }
-        xEventGroupSetBits(local_data.event_handle, FIGURE_LIFTED_BIT_0); // TODO: think if it's needed here at all
+        
         release_lock();
         ESP_LOG(INFO, TAG, "Posted to queue successfully");
     } else {

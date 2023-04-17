@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include "device.h"
 
 #define TAG "DEVICE"
@@ -14,7 +15,11 @@ typedef struct local_data{
 
     SemaphoreHandle_t lock;
 
-    bool switch_matrix[MATRIX_X][MATRIX_Y];
+    bool switch_matrix[MATRIX_Y][MATRIX_X];
+
+    bool received_matrix[MATRIX_Y+1][MATRIX_X+1];
+
+    chess_board_t board;
 
 } local_data_t;
 
@@ -26,6 +31,14 @@ static bool access_lock();
 static bool release_lock();
 
 
+static const char* const figure_names[] = {
+    [FIGURE_PAWN] = "Pawn",
+    [FIGURE_ROOK] = "Rook",
+    [FIGURE_KNIGHT] = "Knight",
+    [FIGURE_BISHOP] = "Bishop",
+    [FIGURE_QUEEN] = "Queen",
+    [FIGURE_KING] = "King"
+};
 
 esp_err_t device_init(){
 
@@ -205,7 +218,8 @@ static void device_task(){
     }
 #endif
 
-    bool ready_to_start = false;
+    bool button_ready_to_start = false;
+    bool matrices_align = false;
     uint8_t start_level = 0;
 
     if (device_set_pin_level(START_BUTTON_OUT_PIN, 1) != ESP_OK){
@@ -214,9 +228,73 @@ static void device_task(){
         ESP_LOG(INFO, TAG, "Set successfully");
     }
 
-    while(!ready_to_start){
+    uint8_t missing_figures_counter = 0;
+    uint8_t led_array[32];
+    uint8_t converted_pos = 0;
+    // Board initialisation and alignement loop
+
+    uint8_t init_level = 0;
+    char *colour;
+    bool at_least_one_missing = true;
+    bool white_figure;
+    for (int i = 0; i < MATRIX_Y; i++){
+        for (int j = 0; j < MATRIX_X; j++){
+            if (local_data.board.board[i][j].figure_type != FIGURE_END_LIST){
+                ESP_LOG(WARN, TAG, "Checking figure type %d", local_data.board.board[i][j].figure_type);
+                device_set_pin_level(out_pins[i], 1);
+                vTaskDelay(500/portTICK_PERIOD_MS);
+                device_get_pin_level(in_pins[j], &level);
+                ESP_LOG(WARN, TAG, "level after read %d on pin %d", level, in_pins[j]);
+                if ((bool)level != true){
+                    white_figure = local_data.board.board[i][j].white;
+                    if (white_figure){
+                        colour = "white ";
+                    } else {
+                        colour = "black ";
+                    }
+                    uint8_t colour_len = strlen(colour);
+                    char *figure_name = figure_names[local_data.board.board[i][j].figure_type];
+                    char rest[] = " on highlighted square";
+                    uint8_t figure_len = strlen(figure_name);
+                    uint8_t rest_len = strlen(rest);
+
+                    ESP_LOG(WARN, TAG, "Sizes %d col %d fig %d rest", colour_len, figure_len, rest_len);
+
+                    char full_message[(colour_len + figure_len + rest_len + 1)];
+                    memset(full_message, 0, rest_len+colour_len+figure_len);
+          
+                    strcat(full_message, colour);
+                    strcat(full_message, figure_name);
+                    strcat(full_message, rest);
+                    
+                    ESP_LOG(INFO, TAG, "Message %s", full_message);
+
+                    display_send_message_to_display(full_message);
+
+                    converted_pos = MATRIX_TO_ARRAY_CONVERSION((i), (j));
+                    led_array[0] = converted_pos;
+                    led_op_general(led_array, 1, white_figure);
+
+                    level = 0;
+                    while(!(bool)level){
+                        device_get_pin_level(in_pins[j], &level);
+                        vTaskDelay(300/portTICK_PERIOD_MS);
+                    }
+                    level = 0;
+                    vTaskDelay(500/portTICK_PERIOD_MS);
+                    while(!(bool)level){
+                        device_get_pin_level(in_pins[j], &level);
+                        vTaskDelay(300/portTICK_PERIOD_MS);
+                    }
+                    device_set_pin_level(out_pins[i], 0);
+                }
+            }
+        }
+    }
+
+    while(!button_ready_to_start || !matrices_align){
         device_get_pin_level(START_BUTTON_IN_PIN, &start_level);
-        ready_to_start = start_level ? true : false;
+        button_ready_to_start = start_level ? true : false;
     
 
 
@@ -229,7 +307,7 @@ static void device_task(){
                 vTaskDelay(80/portTICK_PERIOD_MS);
                 for (int j = 0; j < MATRIX_Y; j++){
                     device_get_pin_level(in_pins[j], &level); 
-                    // TODO: double check about this reversed order
+                    
                     if ((bool)level != local_data.switch_matrix[i][j]){
                         ESP_LOG(WARN, TAG, "Change detected at pin %d  with pin %d set. at level %d array id %d:%d", in_pins[j], out_pins[i], level, i, j);
                         vTaskDelay(500/portTICK_PERIOD_MS);
@@ -242,13 +320,28 @@ static void device_task(){
                             print_array();  
                         }  
                     }
-                    //ESP_LOG(WARN, TAG, "Pin %d  pos %d level %d", in_pins[j], j, level);
                     
                 }
+            }
+            matrices_align = true;
+            
+            for (int i = 0; i < MATRIX_Y; i++){
+                for (int j = 0; j < MATRIX_X; j++) {
+                    if (local_data.switch_matrix[i][j] != local_data.received_matrix[i][j]) {
+                        matrices_align = false;
+                    }
+                }
+            }
+            if (matrices_align){
+                ESP_LOG(INFO, TAG, "Matrices aligned sucessfully");
             }
 
     }
     device_set_pin_level(START_BUTTON_OUT_PIN, 0);
+
+    chess_engine_device_service_ready();
+
+    ESP_LOG(INFO, TAG, "Matrices aligned sucessfully and Start button was pressed");
     ESP_LOG(INFO, TAG, "STARTING GAME");
     state_change_data_t changed_state_figure;
     while(1){
@@ -291,6 +384,24 @@ static void device_task(){
 
 }
 
+esp_err_t device_receive_required_positions(chess_board_t board){
+
+    local_data.board = board;
+
+     for (int i = 0; i < MATRIX_Y; i++){
+        for (int j = 0; j < MATRIX_X; j++){
+            local_data.received_matrix[i][j] = false;
+            if (board.board[i][j].figure_type != FIGURE_END_LIST){
+                ESP_LOG(INFO, TAG, "Figure should be on %d:%d", i, j);
+                local_data.received_matrix[i][j] = true;
+            }
+        }
+    }
+
+
+    return ESP_OK;
+
+}
 
 
 esp_err_t device_get_pin_level(int pin, uint8_t *level){

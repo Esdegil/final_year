@@ -32,7 +32,7 @@
 #define TEST_PIN 34
 #define TAG "MAIN"
 #define VERSION_NUMBER_X 1
-#define VERSION_NUMBER_Y 0
+#define VERSION_NUMBER_Y 1
 
 //#define LED_TEST
 
@@ -108,7 +108,7 @@ static void main_event_handler(void* handler_args, esp_event_base_t base, int32_
 void app_main(void)
 {
     ESP_LOG(INFO, TAG,"This is Vlads Final Year Project!̣");
-    ESP_LOG(INFO, TAG, "Software version: v%d.%d", VERSION_NUMBER_X, VERSION_NUMBER_Y);
+    ESP_LOG(INFO, TAG, "Software version: v%d.%d", VERSION_NUMBER_Y, VERSION_NUMBER_X);
 
 
     esp_chip_info_t chip_info;

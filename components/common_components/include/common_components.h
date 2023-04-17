@@ -12,7 +12,7 @@
 
 #define TEST_VALUE 15
 
-#define FIGURE_LIFTED_BIT_0 (1 << 0)
+#define BOARD_READY_BIT_0 (1 << 0)
 
 ESP_EVENT_DECLARE_BASE(TEST_EVENTS);
 
@@ -21,12 +21,8 @@ ESP_EVENT_DECLARE_BASE(TEST_EVENTS);
 
 #define FULL_BOARD (MATRIX_X == 8 && MATRIX_Y == 8) // for developing 
 
-#define MAX_PAWN_MOVES 4 // TODO: rethink or recount this
+
 #define MAX_KNIGHT_MOVES 8
-
-//#define BREADBOARD_LEDS_CONFIGURATION
-
-#define PAWN_MAX_FORWARD_MOVEMENT 2
 
 #ifdef CONFIG_BREADBOARD_LED_SETUP
 #define MATRIX_TO_ARRAY_CONVERSION(pos_y, pos_x) (pos_y * MATRIX_Y + pos_x)
@@ -45,7 +41,7 @@ typedef struct state_change_data {
     bool lifted;
 } state_change_data_t;
 
-typedef void(*led_operation_t)(uint8_t*, uint8_t);// last () are arguments.
+typedef void(*led_operation_t)(uint8_t*, uint8_t, bool); // last () are arguments.
 
 typedef enum chess_figures {
     FIGURE_PAWN = 0,
@@ -56,16 +52,14 @@ typedef enum chess_figures {
     FIGURE_KING = 5,
     FIGURE_END_LIST
 } chess_figures_t;
-// TODO: pawns require a bool of first move
+
 typedef struct figure_data {
     chess_figures_t figure_type;
     bool white;
-    uint8_t pos_x;
-    uint8_t pos_y;
     led_operation_t led_op;
 }figure_data_t;
 
-typedef struct chess_board { // TODO: this maybe needs rethinking
+typedef struct chess_board { 
     figure_data_t board[MATRIX_Y+1][MATRIX_X+1];
     bool white_turn;
 } chess_board_t;
