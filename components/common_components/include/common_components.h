@@ -41,7 +41,7 @@ typedef struct state_change_data {
     bool lifted;
 } state_change_data_t;
 
-typedef void(*led_operation_t)(uint8_t*, uint8_t); // last () are arguments.
+typedef void(*led_operation_t)(uint8_t*, uint8_t, bool); // last () are arguments.
 
 typedef enum chess_figures {
     FIGURE_PAWN = 0,

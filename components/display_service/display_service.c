@@ -109,10 +109,10 @@ static void display_service_task(void *args) {
     ssd1306_clear_screen(&local_data.display, false);
     ssd1306_contrast(&local_data.display, 0xff);
 
-    ssd1306_display_text_x3(&local_data.display, 0, "Hello", 5, false);
-
     display_message_t message_to_display;
 
+    uint8_t rows_required = 0;
+    char temp_message[16];
     while(1) {
         
 
@@ -122,7 +122,25 @@ static void display_service_task(void *args) {
                 ESP_LOG(WARN, TAG, "Received message in task %s its len %d", message_to_display.message, message_to_display.length);
                 ssd1306_clear_screen(&local_data.display, false);
 
-                ssd1306_display_text(&local_data.display, 0, message_to_display.message, message_to_display.length, false);
+                if (message_to_display.length > 16) { // magic number
+                    rows_required = (message_to_display.length / 16)+1;
+                    if (message_to_display.length % 16 == 0){
+                        rows_required--;
+                    }
+                    for (int i = 0; i < rows_required; i++){
+                        for (int j = 0; j < 16; j++){
+                            
+                            temp_message[j] = message_to_display.message[j + (i * 16)]; 
+                        }
+                        ssd1306_display_text(&local_data.display, i, temp_message, strlen(temp_message), false);
+                        memset(temp_message, 0, 16);    
+                    } 
+                } else {
+                    ssd1306_display_text(&local_data.display, 0, message_to_display.message, message_to_display.length, false);
+                }
+
+
+                
                 //ssd1306_display_text(&local_data.display, 1, "IT", 2, false);
 
             } else {

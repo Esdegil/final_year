@@ -76,6 +76,7 @@ static bool release_lock();
 
 static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool show_leds, bool check_calculations);
 
+
 esp_err_t chess_engine_init(){
 
      if (local_data.initialised){
@@ -133,10 +134,10 @@ esp_err_t chess_engine_init(){
         local_data.board.board[0][3].white = true;
 
 
-        local_data.board.board[0][0].led_op = &led_op_pawn;
-        local_data.board.board[0][1].led_op = &led_op_pawn;
-        local_data.board.board[0][2].led_op = &led_op_pawn;
-        local_data.board.board[0][3].led_op = &led_op_pawn;
+        local_data.board.board[0][0].led_op = &led_op_general;
+        local_data.board.board[0][1].led_op = &led_op_general;
+        local_data.board.board[0][2].led_op = &led_op_general;
+        local_data.board.board[0][3].led_op = &led_op_general;
 
 
         
@@ -153,10 +154,10 @@ esp_err_t chess_engine_init(){
         local_data.board.board[3][3].white = false;
 
 
-        local_data.board.board[3][0].led_op = &led_op_pawn;
-        local_data.board.board[3][1].led_op = &led_op_pawn;
-        local_data.board.board[3][2].led_op = &led_op_pawn;
-        local_data.board.board[3][3].led_op = &led_op_pawn;
+        local_data.board.board[3][0].led_op = &led_op_general;
+        local_data.board.board[3][1].led_op = &led_op_general;
+        local_data.board.board[3][2].led_op = &led_op_general;
+        local_data.board.board[3][3].led_op = &led_op_general;
 
     // Rest of the board
 
@@ -168,7 +169,7 @@ esp_err_t chess_engine_init(){
 
         local_data.board.board[1][1].white = true;
 
-        local_data.board.board[1][1].led_op = &led_op_pawn;
+        local_data.board.board[1][1].led_op = &led_op_general;
 
         local_data.board.board[1][0].pos_x = 0;
         local_data.board.board[1][0].pos_y = 1;
@@ -193,7 +194,7 @@ esp_err_t chess_engine_init(){
 
         local_data.board.board[2][2].white = false;
 
-        local_data.board.board[2][2].led_op = &led_op_pawn;
+        local_data.board.board[2][2].led_op = &led_op_general;
         */
 
         /*
@@ -201,7 +202,7 @@ esp_err_t chess_engine_init(){
 
         local_data.board.board[1][2].white = true;
 
-        local_data.board.board[1][3].led_op = &led_op_pawn;
+        local_data.board.board[1][3].led_op = &led_op_general;
         */
 
 
@@ -210,21 +211,21 @@ esp_err_t chess_engine_init(){
 
         local_data.board.board[1][2].white = true;
 
-        local_data.board.board[1][2].led_op = &led_op_pawn;
+        local_data.board.board[1][2].led_op = &led_op_general;
         
 
         local_data.board.board[2][0].figure_type = FIGURE_QUEEN;
 
         local_data.board.board[2][0].white = false;
 
-        local_data.board.board[2][0].led_op = &led_op_pawn;
+        local_data.board.board[2][0].led_op = &led_op_general;
 
         /*
         local_data.board.board[2][3].figure_type = FIGURE_BISHOP;
 
         local_data.board.board[2][3].white = false;
 
-        local_data.board.board[2][3].led_op = &led_op_pawn;
+        local_data.board.board[2][3].led_op = &led_op_general;
         */
 
     }
@@ -2938,7 +2939,8 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
                 ESP_LOG(INFO, TAG, "Valid moves num %d", valid_moves_counter);
                 if (show_leds){
                     ESP_LOG(INFO, TAG, "Showing LEDS");
-                    local_data.board.board[updated_pos.pos_y][updated_pos.pos_x].led_op(led_array_ptr, valid_moves_counter);
+                    bool white = local_data.board.board[updated_pos.pos_y][updated_pos.pos_x].white;
+                    local_data.board.board[updated_pos.pos_y][updated_pos.pos_x].led_op(led_array_ptr, valid_moves_counter, white);
                 }
             } else {
                 ESP_LOG(INFO, TAG, "No moves for this figure will protect king from check");
@@ -2957,7 +2959,8 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
             }
             if (show_leds){
                 ESP_LOG(INFO, TAG, "Showing LEDS");
-                local_data.board.board[updated_pos.pos_y][updated_pos.pos_x].led_op(led_array_ptr, counter);
+                bool white = local_data.board.board[updated_pos.pos_y][updated_pos.pos_x].white;
+                local_data.board.board[updated_pos.pos_y][updated_pos.pos_x].led_op(led_array_ptr, counter, white);
             }
 
             
@@ -3023,19 +3026,9 @@ static figure_position_t find_king_by_colour(chess_board_t board, bool white){
 }
 
 static void send_checking_matrix_to_device_service() {
-    bool b_matrix[MATRIX_Y][MATRIX_X];
+   
 
-    for (int i = 0; i < MATRIX_Y; i++){
-        for (int j = 0; j < MATRIX_X; j++){
-            b_matrix[i][j] = false;
-            if (local_data.board.board[i][j].figure_type != FIGURE_END_LIST){
-                ESP_LOG(INFO, TAG, "Figure should be on %d:%d", i, j);
-                b_matrix[i][j] = true;
-            }
-        }
-    }
-
-    device_receive_required_positions(b_matrix);
+    device_receive_required_positions(local_data.board);
 
 }
 
@@ -3251,6 +3244,7 @@ static void chess_engine_task(void *args){
                                 uint8_t rest_length = strlen(rest);
 
                                 char full_message[(colour_length + rest_length + 1)]; 
+                                memset(full_message, 0, colour_length + rest_length);
 
                                 strcat(full_message, colour);
                                 strcat(full_message, rest);
@@ -3315,6 +3309,7 @@ static void chess_engine_task(void *args){
                             uint8_t rest_length = strlen(rest);
 
                             char full_message[(colour_length + rest_length + 1)]; 
+                            memset(full_message, 0, colour_length + rest_length);
 
                             strcat(full_message, colour);
                             strcat(full_message, rest);
