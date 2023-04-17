@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include "device.h"
 
 #define TAG "DEVICE"
@@ -18,6 +19,8 @@ typedef struct local_data{
 
     bool received_matrix[MATRIX_Y+1][MATRIX_X+1];
 
+    chess_board_t board;
+
 } local_data_t;
 
 static local_data_t local_data;
@@ -28,6 +31,14 @@ static bool access_lock();
 static bool release_lock();
 
 
+static const char* const figure_names[] = {
+    [FIGURE_PAWN] = "Pawn",
+    [FIGURE_ROOK] = "Rook",
+    [FIGURE_KNIGHT] = "Knight",
+    [FIGURE_BISHOP] = "Bishop",
+    [FIGURE_QUEEN] = "Queen",
+    [FIGURE_KING] = "King"
+};
 
 esp_err_t device_init(){
 
@@ -217,6 +228,70 @@ static void device_task(){
         ESP_LOG(INFO, TAG, "Set successfully");
     }
 
+    uint8_t missing_figures_counter = 0;
+    uint8_t led_array[32];
+    uint8_t converted_pos = 0;
+    // Board initialisation and alignement loop
+
+    uint8_t init_level = 0;
+    char *colour;
+    bool at_least_one_missing = true;
+    bool white_figure;
+    for (int i = 0; i < MATRIX_Y; i++){
+        for (int j = 0; j < MATRIX_X; j++){
+            if (local_data.board.board[i][j].figure_type != FIGURE_END_LIST){
+                ESP_LOG(WARN, TAG, "Checking figure type %d", local_data.board.board[i][j].figure_type);
+                device_set_pin_level(out_pins[i], 1);
+                vTaskDelay(500/portTICK_PERIOD_MS);
+                device_get_pin_level(in_pins[j], &level);
+                ESP_LOG(WARN, TAG, "level after read %d on pin %d", level, in_pins[j]);
+                if ((bool)level != true){
+                    white_figure = local_data.board.board[i][j].white;
+                    if (white_figure){
+                        colour = "white ";
+                    } else {
+                        colour = "black ";
+                    }
+                    uint8_t colour_len = strlen(colour);
+                    char *figure_name = figure_names[local_data.board.board[i][j].figure_type];
+                    char rest[] = " on highlighted square";
+                    uint8_t figure_len = strlen(figure_name);
+                    uint8_t rest_len = strlen(rest);
+
+                    ESP_LOG(WARN, TAG, "Sizes %d col %d fig %d rest", colour_len, figure_len, rest_len);
+
+                    char full_message[(colour_len + figure_len + rest_len + 1)];
+                    memset(full_message, 0, rest_len+colour_len+figure_len);
+          
+                    strcat(full_message, colour);
+                    strcat(full_message, figure_name);
+                    strcat(full_message, rest);
+                    
+                    ESP_LOG(INFO, TAG, "Message %s", full_message);
+
+                    display_send_message_to_display(full_message);
+
+                    converted_pos = MATRIX_TO_ARRAY_CONVERSION((i), (j));
+                    led_array[0] = converted_pos;
+                    led_op_general(led_array, 1, white_figure);
+
+                    level = 0;
+                    while(!(bool)level){
+                        device_get_pin_level(in_pins[j], &level);
+                        vTaskDelay(300/portTICK_PERIOD_MS);
+                    }
+                    level = 0;
+                    vTaskDelay(500/portTICK_PERIOD_MS);
+                    while(!(bool)level){
+                        device_get_pin_level(in_pins[j], &level);
+                        vTaskDelay(300/portTICK_PERIOD_MS);
+                    }
+                    device_set_pin_level(out_pins[i], 0);
+                }
+            }
+        }
+    }
+
     while(!button_ready_to_start || !matrices_align){
         device_get_pin_level(START_BUTTON_IN_PIN, &start_level);
         button_ready_to_start = start_level ? true : false;
@@ -249,10 +324,10 @@ static void device_task(){
                 }
             }
             matrices_align = true;
+            
             for (int i = 0; i < MATRIX_Y; i++){
                 for (int j = 0; j < MATRIX_X; j++) {
                     if (local_data.switch_matrix[i][j] != local_data.received_matrix[i][j]) {
-                        //ESP_LOG(WARN, TAG, "At least 1 value is different from the received board");
                         matrices_align = false;
                     }
                 }
@@ -309,13 +384,21 @@ static void device_task(){
 
 }
 
-esp_err_t device_receive_required_positions(bool matrix[][MATRIX_X]){
+esp_err_t device_receive_required_positions(chess_board_t board){
 
-    for (int i = 0; i < MATRIX_Y; i++){
+    local_data.board = board;
+
+     for (int i = 0; i < MATRIX_Y; i++){
         for (int j = 0; j < MATRIX_X; j++){
-                local_data.received_matrix[i][j] = matrix[i][j];
+            local_data.received_matrix[i][j] = false;
+            if (board.board[i][j].figure_type != FIGURE_END_LIST){
+                ESP_LOG(INFO, TAG, "Figure should be on %d:%d", i, j);
+                local_data.received_matrix[i][j] = true;
+            }
         }
     }
+
+
     return ESP_OK;
 
 }

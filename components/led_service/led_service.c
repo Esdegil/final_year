@@ -283,11 +283,19 @@ static bool release_lock(){
 }
 
 
-esp_err_t led_op_pawn(uint8_t *arr, uint8_t counter){
+esp_err_t led_op_general(uint8_t *arr, uint8_t counter, bool white){
 
     if (!arr || counter == 0){
         ESP_LOG(ERROR, TAG, "args are null. Aborting");
         return ESP_FAIL;
+    }
+
+    struct led_color_t *colour = &colour_red;
+
+    if (white){
+        colour = &colour_green;
+    } else {
+        colour = &colour_purple;
     }
 
     if (local_data.led_strip_lib_initialised) {
@@ -298,7 +306,7 @@ esp_err_t led_op_pawn(uint8_t *arr, uint8_t counter){
             return ESP_FAIL;
         }
         for (int i = 0; i < counter; i++){
-            if (!led_strip_set_pixel_color(&local_data.led_strip, arr[i], &colour_purple)){
+            if (!led_strip_set_pixel_color(&local_data.led_strip, arr[i], colour)){
                 ESP_LOG(ERROR, TAG, "Failed to set colour for pixel %d", arr[i]);
             }
         }
