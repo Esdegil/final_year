@@ -3004,6 +3004,7 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
         }
     } else {
         ESP_LOG(WARN, TAG, "Check happened this turn. need to check if any enemy figures or moves can protect king from check");
+        display_send_message_to_display("Check!");
         if (checkmate_check(updated_pos) != ESP_OK){
             ESP_LOG(ERROR, TAG, "No possible moves left to do");
             local_data.checkmate = true;
@@ -3077,6 +3078,11 @@ static void chess_engine_task(void *args){
 
     bool checkmate = false;
 
+    if (local_data.board.white_turn){
+        if (display_send_message_to_display("white turn now!") != ESP_OK){
+            ESP_LOG(ERROR, TAG, "Failed to post turn data to display");
+        }
+    }
     while(1){
 
         if (access_lock()){
@@ -3090,6 +3096,9 @@ static void chess_engine_task(void *args){
 
         if (checkmate){
             ESP_LOG(WARN, TAG, "CHECKMATE. Game is over");
+            if (display_send_message_to_display("CHECKMATE") != ESP_OK){
+                ESP_LOG(ERROR, TAG, "Failed to post chechmate message to display queue");
+            }
             break;
         }
 
@@ -3221,6 +3230,29 @@ static void chess_engine_task(void *args){
                                 local_data.board.white_turn = !local_data.board.white_turn; // Changing turns
                                 ESP_LOG(INFO, TAG, "%s turn now!", local_data.board.white_turn ? "white" : "black");
 
+                                char *colour;
+                                if (local_data.board.white_turn){
+                                    colour = "white";
+                                } else {
+                                    colour = "black";
+                                }
+                                //char colour[5] = local_data.board.white_turn ? "white" : "black";
+                                char rest[] = " turn now!";
+
+                                uint8_t colour_length = strlen(colour);
+                                uint8_t rest_length = strlen(rest);
+
+                                char full_message[(colour_length + rest_length + 1)]; 
+
+                                strcat(full_message, colour);
+                                strcat(full_message, rest);
+
+                                ESP_LOG(WARN, TAG, "Message %s", full_message);
+
+                                if (display_send_message_to_display(full_message) != ESP_OK){
+                                    ESP_LOG(ERROR, TAG, "Failure on posting message to device service");
+                                }
+
                                 led_clear_stripe();
 
                             } else {
@@ -3262,6 +3294,29 @@ static void chess_engine_task(void *args){
 
                             local_data.board.white_turn = !local_data.board.white_turn; // Changing turns
                             ESP_LOG(INFO, TAG, "%s turn now!", local_data.board.white_turn ? "white" : "black");
+                            char *colour;
+                            if (local_data.board.white_turn){
+                                colour = "white";
+                            } else {
+                                colour = "black";
+                            }
+                            //char colour[5] = local_data.board.white_turn ? "white" : "black";
+                            char rest[] = " turn now!";
+
+                            uint8_t colour_length = strlen(colour);
+                            uint8_t rest_length = strlen(rest);
+
+                            char full_message[(colour_length + rest_length + 1)]; 
+
+                            strcat(full_message, colour);
+                            strcat(full_message, rest);
+
+                            ESP_LOG(WARN, TAG, "Message %s", full_message);
+
+                            if (display_send_message_to_display(full_message) != ESP_OK){
+                                ESP_LOG(ERROR, TAG, "Failure on posting message to device service");
+                            }
+
                             attacking = false;
 
                             led_clear_stripe();
