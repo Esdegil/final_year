@@ -1,7 +1,8 @@
 # final year project Vlad
 
-# version number v1.0
+# version number v1.1
 
+## v1.1 Improved UX by better Display and LED Service integration across the codebase.
 ## v1.0 Minimal requirements complete. Implemented game engine with some things still left to do.
 ## v0.2-0.3 Minimal requirements almost complete. Input matrix is connected with chess engine and led service.
 
