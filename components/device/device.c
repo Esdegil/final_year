@@ -14,7 +14,9 @@ typedef struct local_data{
 
     SemaphoreHandle_t lock;
 
-    bool switch_matrix[MATRIX_X][MATRIX_Y];
+    bool switch_matrix[MATRIX_Y][MATRIX_X];
+
+    bool received_matrix[MATRIX_Y+1][MATRIX_X+1];
 
 } local_data_t;
 
@@ -205,7 +207,8 @@ static void device_task(){
     }
 #endif
 
-    bool ready_to_start = false;
+    bool button_ready_to_start = false;
+    bool matrices_align = false;
     uint8_t start_level = 0;
 
     if (device_set_pin_level(START_BUTTON_OUT_PIN, 1) != ESP_OK){
@@ -214,9 +217,9 @@ static void device_task(){
         ESP_LOG(INFO, TAG, "Set successfully");
     }
 
-    while(!ready_to_start){
+    while(!button_ready_to_start || !matrices_align){
         device_get_pin_level(START_BUTTON_IN_PIN, &start_level);
-        ready_to_start = start_level ? true : false;
+        button_ready_to_start = start_level ? true : false;
     
 
 
@@ -229,7 +232,7 @@ static void device_task(){
                 vTaskDelay(80/portTICK_PERIOD_MS);
                 for (int j = 0; j < MATRIX_Y; j++){
                     device_get_pin_level(in_pins[j], &level); 
-                    // TODO: double check about this reversed order
+                    
                     if ((bool)level != local_data.switch_matrix[i][j]){
                         ESP_LOG(WARN, TAG, "Change detected at pin %d  with pin %d set. at level %d array id %d:%d", in_pins[j], out_pins[i], level, i, j);
                         vTaskDelay(500/portTICK_PERIOD_MS);
@@ -242,13 +245,28 @@ static void device_task(){
                             print_array();  
                         }  
                     }
-                    //ESP_LOG(WARN, TAG, "Pin %d  pos %d level %d", in_pins[j], j, level);
                     
                 }
+            }
+            matrices_align = true;
+            for (int i = 0; i < MATRIX_Y; i++){
+                for (int j = 0; j < MATRIX_X; j++) {
+                    if (local_data.switch_matrix[i][j] != local_data.received_matrix[i][j]) {
+                        //ESP_LOG(WARN, TAG, "At least 1 value is different from the received board");
+                        matrices_align = false;
+                    }
+                }
+            }
+            if (matrices_align){
+                ESP_LOG(INFO, TAG, "Matrices aligned sucessfully");
             }
 
     }
     device_set_pin_level(START_BUTTON_OUT_PIN, 0);
+
+    chess_engine_device_service_ready();
+
+    ESP_LOG(INFO, TAG, "Matrices aligned sucessfully and Start button was pressed");
     ESP_LOG(INFO, TAG, "STARTING GAME");
     state_change_data_t changed_state_figure;
     while(1){
@@ -291,6 +309,16 @@ static void device_task(){
 
 }
 
+esp_err_t device_receive_required_positions(bool matrix[][MATRIX_X]){
+
+    for (int i = 0; i < MATRIX_Y; i++){
+        for (int j = 0; j < MATRIX_X; j++){
+                local_data.received_matrix[i][j] = matrix[i][j];
+        }
+    }
+    return ESP_OK;
+
+}
 
 
 esp_err_t device_get_pin_level(int pin, uint8_t *level){
