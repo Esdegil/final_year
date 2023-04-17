@@ -132,14 +132,6 @@ esp_err_t chess_engine_init(){
         local_data.board.board[0][2].white = true;
         local_data.board.board[0][3].white = true;
 
-        local_data.board.board[0][0].pos_x = 0;
-        local_data.board.board[0][0].pos_y = 0;
-
-        local_data.board.board[0][1].pos_x = 1;
-        local_data.board.board[0][1].pos_y = 0;
-
-        local_data.board.board[0][2].pos_x = 2;
-        local_data.board.board[0][2].pos_y = 0;
 
         local_data.board.board[0][0].led_op = &led_op_pawn;
         local_data.board.board[0][1].led_op = &led_op_pawn;
@@ -160,14 +152,6 @@ esp_err_t chess_engine_init(){
         local_data.board.board[3][2].white = false;
         local_data.board.board[3][3].white = false;
 
-        local_data.board.board[3][0].pos_x = 0;
-        local_data.board.board[3][0].pos_y = 2;
-
-        local_data.board.board[3][1].pos_x = 1;
-        local_data.board.board[3][1].pos_y = 2;
-
-        local_data.board.board[3][2].pos_x = 2;
-        local_data.board.board[3][2].pos_y = 2;
 
         local_data.board.board[3][0].led_op = &led_op_pawn;
         local_data.board.board[3][1].led_op = &led_op_pawn;
@@ -3038,6 +3022,23 @@ static figure_position_t find_king_by_colour(chess_board_t board, bool white){
 
 }
 
+static void send_checking_matrix_to_device_service() {
+    bool b_matrix[MATRIX_Y][MATRIX_X];
+
+    for (int i = 0; i < MATRIX_Y; i++){
+        for (int j = 0; j < MATRIX_X; j++){
+            b_matrix[i][j] = false;
+            if (local_data.board.board[i][j].figure_type != FIGURE_END_LIST){
+                ESP_LOG(INFO, TAG, "Figure should be on %d:%d", i, j);
+                b_matrix[i][j] = true;
+            }
+        }
+    }
+
+    device_receive_required_positions(b_matrix);
+
+}
+
 static void chess_engine_task(void *args){
 
     
@@ -3069,6 +3070,21 @@ static void chess_engine_task(void *args){
     temp_pos.pos_x = MATRIX_X;
 
     bool checkmate = false;
+
+    send_checking_matrix_to_device_service();
+
+    if (display_send_message_to_display("Waiting for game to be setup and started") != ESP_OK){
+            ESP_LOG(ERROR, TAG, "Failed to post turn data to display");
+        }
+
+    EventBits_t bits;
+    while(1) {
+        bits = xEventGroupWaitBits(local_data.event_handle, BOARD_READY_BIT_0, pdTRUE, pdTRUE, SECOND_TICK);
+        if ((bits & BOARD_READY_BIT_0) != 0){
+            ESP_LOG(INFO, TAG, "Board is set! Starting game");
+            break;
+        }
+    }
 
     if (local_data.board.white_turn){
         if (display_send_message_to_display("white turn now!") != ESP_OK){
@@ -3339,6 +3355,10 @@ static void chess_engine_task(void *args){
     }
 }
 
+esp_err_t chess_engine_device_service_ready(){
+    xEventGroupSetBits(local_data.event_handle, BOARD_READY_BIT_0);
+    return ESP_OK;
+}
 
 esp_err_t update_board_on_lift(state_change_data_t data) {
 
