@@ -2294,7 +2294,6 @@ static esp_err_t checkmate_check(figure_position_t pos) {
     return ESP_OK;
 }
 
-// TODO: refactor this so showing leds would depend on that bool
 static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool show_leds, bool check_calculations){
     
     chess_figures_t current_figure;
@@ -2333,8 +2332,8 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
 
     uint8_t traj_counter = 0;
 
-    // TODO: add error handling
-    switch (current_figure){ // TODO: update all the functions the same way as with rook
+
+    switch (current_figure){ 
         case FIGURE_PAWN:
             if (pawn_led_calculation(updated_pos, &led_array_ptr, &counter) != ESP_OK){
 
@@ -2469,7 +2468,7 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
                             }
                         } else if (mod_x != 0){
                             for (int j = updated_pos.pos_x + mod_x; j != king_pos.pos_x; j += mod_x){
-                                //led_array_ptr[traj_counter] = MATRIX_TO_ARRAY_CONVERSION((updated_pos.pos_y), j);
+                                
                                 ESP_LOG(WARN, TAG, "REALLOC");
                                 modified_led_array_ptr = (uint8_t*)realloc(modified_led_array_ptr, ((traj_counter+1)*(sizeof(uint8_t))));
                                 
@@ -2507,10 +2506,6 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
                         traj_counter++;
 
                         ESP_LOG(WARN, TAG, "Added %d or %d:%d to led_array_ptr", MATRIX_TO_ARRAY_CONVERSION((updated_pos.pos_y), (updated_pos.pos_x)), updated_pos.pos_y, updated_pos.pos_x);
-
-                        
-
-                        //memcpy(&local_data.check_trajectory, &modified_led_array_ptr, (traj_counter * (sizeof(uint8_t))));
 
                         local_data.check_trajectory = modified_led_array_ptr;
 
@@ -2590,9 +2585,6 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
                             ESP_LOG(INFO, TAG, "Mod led array ptr %d", modified_led_array_ptr[j]);
                         }
 
-                        
-
-                        //memcpy(&local_data.check_trajectory, &modified_led_array_ptr, (traj_counter * (sizeof(uint8_t))));
 
                         local_data.check_trajectory = modified_led_array_ptr;
 
@@ -3339,110 +3331,6 @@ static void chess_engine_task(void *args){
                     
                     local_data.last_change_data = change_data;
                     
-                    
-                    
-                    /*if (change_data.pos.pos_y != local_data.last_change_data.pos.pos_y || change_data.pos.pos_x != local_data.last_change_data.pos.pos_x){ 
-
-                        if (!last_figure_lifted && board.board[change_data.pos.pos_y][change_data.pos.pos_x].figure_type != FIGURE_END_LIST && board.board[change_data.pos.pos_y][change_data.pos.pos_x].white && !board.white_turn) {
-                            allowed_to_do_move = false;
-                            ESP_LOG(ERROR, TAG, "Not white turn");
-                            led_no_move_possible(MATRIX_TO_ARRAY_CONVERSION(change_data.pos.pos_y, change_data.pos.pos_x));
-                            // TODO: something here
-                        }
-                        // TODO: this if needs to be changed
-                        if (!last_figure_lifted && board.board[change_data.pos.pos_y][change_data.pos.pos_x].figure_type != FIGURE_END_LIST && !board.board[change_data.pos.pos_y][change_data.pos.pos_x].white && board.white_turn) {
-                            ESP_LOG(ERROR, TAG, "Not black turn");
-                            allowed_to_do_move = false;
-                            led_no_move_possible(MATRIX_TO_ARRAY_CONVERSION(change_data.pos.pos_y, change_data.pos.pos_x));
-                            // TODO; add something here
-                        }
-                        if (allowed_to_do_move){
-                            // moving to empty cell
-                            if (local_data.board.board[change_data.pos.pos_y][change_data.pos.pos_x].figure_type == FIGURE_END_LIST){ // moving previously lifted figure onto empty square
-                                // TODO: below code needs to be changed when I'll switch to reed switches
-                                //if (local_data.last_change_data.lifted != change_data.lifted && !change_data.lifted){
-                                    // means a figure previously lifted was put down on empty cell
-                                    local_data.board.board[change_data.pos.pos_y][change_data.pos.pos_x] = local_data.board.board[local_data.last_change_data.pos.pos_y][local_data.last_change_data.pos.pos_x];
-                                    local_data.board.board[local_data.last_change_data.pos.pos_y][local_data.last_change_data.pos.pos_x].led_op = NULL;
-                                    local_data.board.board[local_data.last_change_data.pos.pos_y][local_data.last_change_data.pos.pos_x].figure_type = FIGURE_END_LIST;
-                                    // TODO: really double check above
-
-                                    
-                                    
-                                    ESP_LOG(WARN, TAG, "Figure was moved from %d:%d to %d:%d", local_data.last_change_data.pos.pos_y, local_data.last_change_data.pos.pos_x, change_data.pos.pos_y, change_data.pos.pos_x);
-                                    
-                                    local_data.board.white_turn = !local_data.board.white_turn; // Changing turns
-                                    ESP_LOG(INFO, TAG, "%s turn now!", local_data.board.white_turn ? "white" : "black");
-                                //}
-
-                            //attacking
-                            } else if (board.board[change_data.pos.pos_y][change_data.pos.pos_x].figure_type != FIGURE_END_LIST && !attacking){
-                                
-                                if (change_data.lifted && local_data.last_change_data.lifted){
-                                    if (board.board[local_data.last_change_data.pos.pos_y][local_data.last_change_data.pos.pos_x].white != board.board[change_data.pos.pos_y][change_data.pos.pos_x].white) {
-                                        attacking_figure_initial_position = local_data.last_change_data.pos;
-                                        ESP_LOG(WARN, TAG, "Attacking figure position %d:%d", attacking_figure_initial_position.pos_y, attacking_figure_initial_position.pos_x);
-                                        attacking = true;
-                                    }
-                                }
-                                if (change_data.lifted && !local_data.last_change_data.lifted) {
-                                    required_leds_calculation(change_data.pos);
-                                    // TODO: maybe this needs to be moved
-                                    
-                                }
-
-                                local_data.last_change_data = change_data;
-
-                            } 
-                        }
-                    } else { // Indicates that the same figure was put down or lifted
-                        if (!change_data.lifted && !attacking){
-                            ESP_LOG(INFO, TAG, "Same figure put down");
-                            if (led_clear_stripe() != ESP_OK){
-                                ESP_LOG(ERROR, TAG, "Failed to clear led stripe");
-                            }
-                        } else {
-
-                            
-                            allowed_to_do_move = true;
-                            last_figure_lifted = local_data.last_change_data.lifted;
-
-                            allowed_to_do_move = (board.board[change_data.pos.pos_y][change_data.pos.pos_x].white == board.white_turn) 
-
-                            if (!last_figure_lifted && board.board[change_data.pos.pos_y][change_data.pos.pos_x].figure_type != FIGURE_END_LIST && board.board[change_data.pos.pos_y][change_data.pos.pos_x].white && !board.white_turn) {
-                                allowed_to_do_move = false;
-                                ESP_LOG(ERROR, TAG, "Not white turn else");
-                                led_no_move_possible(MATRIX_TO_ARRAY_CONVERSION(change_data.pos.pos_y, change_data.pos.pos_x));
-                                // TODO: something here
-                            }
-                            // TODO: this if needs to be changed
-                            if (!last_figure_lifted && board.board[change_data.pos.pos_y][change_data.pos.pos_x].figure_type != FIGURE_END_LIST && !board.board[change_data.pos.pos_y][change_data.pos.pos_x].white && board.white_turn) {
-                                ESP_LOG(ERROR, TAG, "Not black turn else ");
-                                allowed_to_do_move = false;
-                                led_no_move_possible(MATRIX_TO_ARRAY_CONVERSION(change_data.pos.pos_y, change_data.pos.pos_x));
-                                // TODO; add something here
-                            }
-
-                            if (attacking && allowed_to_do_move){
-                                ESP_LOG(WARN, TAG, "Figure %d on %d:%d was attacked by %d from %d:%d", local_data.board.board[change_data.pos.pos_y][change_data.pos.pos_x].figure_type, change_data.pos.pos_y, change_data.pos.pos_x, local_data.board.board[attacking_figure_initial_position.pos_y][attacking_figure_initial_position.pos_x].figure_type, attacking_figure_initial_position.pos_y, attacking_figure_initial_position.pos_x);
-                                
-                                local_data.board.board[change_data.pos.pos_y][change_data.pos.pos_x] = local_data.board.board[attacking_figure_initial_position.pos_y][attacking_figure_initial_position.pos_x];
-                                local_data.board.board[attacking_figure_initial_position.pos_y][attacking_figure_initial_position.pos_x].figure_type = FIGURE_END_LIST;
-                                local_data.board.board[attacking_figure_initial_position.pos_y][attacking_figure_initial_position.pos_x].led_op = NULL;
-                                local_data.board.white_turn = !local_data.board.white_turn; // Changing turns
-                                ESP_LOG(INFO, TAG, "%s turn now!", local_data.board.white_turn ? "white" : "black");
-                                attacking = false;
-                            } else if (allowed_to_do_move){
-                                // TODO: really think about this
-                                ESP_LOG(WARN, TAG, "Same figure lifted");
-                                required_leds_calculation(change_data.pos);
-                                local_data.last_change_data = change_data;
-                                
-                            }
-                            
-                        }
-                    }
-                }*/
             }
 
             
@@ -3463,7 +3351,7 @@ esp_err_t update_board_on_lift(state_change_data_t data) {
             release_lock();
             return ESP_FAIL;
         }
-        xEventGroupSetBits(local_data.event_handle, FIGURE_LIFTED_BIT_0); // TODO: think if it's needed here at all
+        
         release_lock();
         ESP_LOG(INFO, TAG, "Posted to queue successfully");
     } else {
