@@ -48,7 +48,7 @@ typedef struct local_data{
 
     EventGroupHandle_t event_handle;
 
-    QueueHandle_t queue; // TODO: maybe rename this 
+    QueueHandle_t queue; 
 
     state_change_data_t last_change_data;
 
@@ -2335,11 +2335,15 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
                         if (check_calculations){
                             ESP_LOG(WARN, TAG, "King under possible attack from knight");
 
-                             if (led_array_ptr){
+                            local_data.temp_led_array = led_array_ptr;
+                            local_data.temp_counter = counter;
+                            /*
+                            if (led_array_ptr){
                                 ESP_LOG(WARN, TAG, "FREE led_array_ptr");
                                 free(led_array_ptr);
                                 led_array_ptr = NULL;
-                            }
+                            } 
+                            */
                             return ESP_ERR_NO_MEM;
 
                         }
@@ -2404,11 +2408,15 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
                         if (check_calculations){
                             ESP_LOG(WARN, TAG, "King under possible attack from rook");
 
-                             if (led_array_ptr){
+                            local_data.temp_led_array = led_array_ptr;
+                            local_data.temp_counter = counter;
+                            /*
+                            if (led_array_ptr){
                                 ESP_LOG(WARN, TAG, "FREE led_array_ptr");
                                 free(led_array_ptr);
                                 led_array_ptr = NULL;
-                            }
+                            } 
+                            */
                             return ESP_ERR_NO_MEM;
 
                             
@@ -2528,11 +2536,15 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
                         if (check_calculations){
                             ESP_LOG(WARN, TAG, "King under possible attack from knight");
 
-                             if (led_array_ptr){
+                            local_data.temp_led_array = led_array_ptr;
+                            local_data.temp_counter = counter;
+                            /*
+                            if (led_array_ptr){
                                 ESP_LOG(WARN, TAG, "FREE led_array_ptr");
                                 free(led_array_ptr);
                                 led_array_ptr = NULL;
-                            }
+                            } 
+                            */
                             return ESP_ERR_NO_MEM;
 
                         }
@@ -2600,11 +2612,15 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
                         if (check_calculations){
                             ESP_LOG(WARN, TAG, "King under possible attack from bishop");
 
-                             if (led_array_ptr){
+                            local_data.temp_led_array = led_array_ptr;
+                            local_data.temp_counter = counter;
+                            /*
+                            if (led_array_ptr){
                                 ESP_LOG(WARN, TAG, "FREE led_array_ptr");
                                 free(led_array_ptr);
                                 led_array_ptr = NULL;
-                            }
+                            } 
+                            */
                             return ESP_ERR_NO_MEM;
 
                         }
@@ -2834,11 +2850,15 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
                         if (check_calculations){
                             ESP_LOG(WARN, TAG, "King under possible attack from king? Check TODO");
 
-                             if (led_array_ptr){
+                            local_data.temp_led_array = led_array_ptr;
+                            local_data.temp_counter = counter;
+                            /*
+                            if (led_array_ptr){
                                 ESP_LOG(WARN, TAG, "FREE led_array_ptr");
                                 free(led_array_ptr);
                                 led_array_ptr = NULL;
-                            }
+                            } 
+                            */
                             return ESP_ERR_NO_MEM;
 
                         }
@@ -3118,11 +3138,9 @@ static void chess_engine_task(void *args){
 
                     ESP_LOG(WARN, TAG, "Different colours: %d same position %d target empty %d moving_to_empty %d valid_colour_for_turn %d", different_colours, same_position, target_empty, moving_to_empty, valid_colour_for_turn);
 
-                    //allow_lifting_enemy_figure = local_data.last_change_data.lifted
-
                     ESP_LOG(WARN, TAG, "Received positions: %d:%d. Figure was %s:%d", change_data.pos.pos_y, change_data.pos.pos_x, change_data.lifted ? "lifted" : "put down", change_data.lifted);
                     ESP_LOG(WARN, TAG, "Last saved state change positions: %d:%d. figure was %s:%d",local_data.last_change_data.pos.pos_y, local_data.last_change_data.pos.pos_x, local_data.last_change_data.lifted ? "lifted" : "put down", local_data.last_change_data.lifted);
-                    // Checking if the figure that changed state is not the same that done it previously
+                    
                     
 
                     if (change_data.lifted){
@@ -3185,7 +3203,7 @@ static void chess_engine_task(void *args){
                                 local_data.board.board[change_data.pos.pos_y][change_data.pos.pos_x] = local_data.board.board[local_data.last_change_data.pos.pos_y][local_data.last_change_data.pos.pos_x];
                                 local_data.board.board[local_data.last_change_data.pos.pos_y][local_data.last_change_data.pos.pos_x].led_op = NULL;
                                 local_data.board.board[local_data.last_change_data.pos.pos_y][local_data.last_change_data.pos.pos_x].figure_type = FIGURE_END_LIST;
-                                        // TODO: really double check above
+                                    
 
                                         
                                         
@@ -3237,7 +3255,7 @@ static void chess_engine_task(void *args){
                                 } else {
                                     colour = "black";
                                 }
-                                //char colour[5] = local_data.board.white_turn ? "white" : "black";
+                            
                                 char rest[] = " turn now!";
 
                                 uint8_t colour_length = strlen(colour);
@@ -3302,7 +3320,7 @@ static void chess_engine_task(void *args){
                             } else {
                                 colour = "black";
                             }
-                            //char colour[5] = local_data.board.white_turn ? "white" : "black";
+
                             char rest[] = " turn now!";
 
                             uint8_t colour_length = strlen(colour);
