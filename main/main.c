@@ -178,9 +178,6 @@ void app_main(void)
 
     device_get_pin_level(num, &level);
 
-    ESP_LOG(WARN, TAG, "This is a test message without args.");
-    ESP_LOG(ERROR, TAG, "This is a test message with argument: %d", TEST_VALUE);
-    ESP_LOG(INFO, TAG, "Another test multiple args %d %d", 99, 23);
 
 #ifdef WORKING_ON_EVENTS
     ESP_LOG(WARN, TAG, "Entering main loop. Posting test event");
