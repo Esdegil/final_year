@@ -1,4 +1,4 @@
-# final year project Vlad
+# final year project Vlad {#readme_link}
 
 # version number v1.1
 
@@ -8,6 +8,10 @@
 
 ## The plan is to merge dev to master once in a week with following notation vX.Y
 ### Y will be changed weekly and X should be changed with major updates such as finishing minimal requirements, etc.
+
+## Documentation
+
+to get documetation run `doxygen Doxyfile` from the root directory.
 
 ## Instructions to run everything (in case I forget)
 After finishing changes to the image do (from root dir in terminal)
