@@ -1,0 +1,16 @@
+digraph "components/logger_service" {
+  compound=true
+  node [ fontsize="10", fontname="Helvetica"];
+  edge [ labelfontsize="10", labelfontname="Helvetica"];
+  subgraph clusterdir_409f97388efe006bc3438b95e9edef48 {
+    graph [ bgcolor="#ddddee", pencolor="black", label="components" fontname="Helvetica", fontsize="10", URL="dir_409f97388efe006bc3438b95e9edef48.html"]
+  subgraph clusterdir_0cece418d453858bbe77e468de98adc6 {
+    graph [ bgcolor="#eeeeff", pencolor="black", label="" URL="dir_0cece418d453858bbe77e468de98adc6.html"];
+    dir_0cece418d453858bbe77e468de98adc6 [shape=plaintext label="logger_service"];
+    dir_ad8a1d08528e1886319ef5f4c6935a7a [shape=box label="include" color="black" fillcolor="white" style="filled" URL="dir_ad8a1d08528e1886319ef5f4c6935a7a.html"];
+  }
+  }
+  dir_0971f42274b269b591d074f289887a6a [shape=box label="common_components" fillcolor="white" style="filled" color="red" URL="dir_0971f42274b269b591d074f289887a6a.html"];
+  dir_ad8a1d08528e1886319ef5f4c6935a7a->dir_0971f42274b269b591d074f289887a6a [headlabel="1", labeldistance=1.5 headhref="dir_000068_000039.html"];
+  dir_0cece418d453858bbe77e468de98adc6->dir_ad8a1d08528e1886319ef5f4c6935a7a [headlabel="1", labeldistance=1.5 headhref="dir_000043_000068.html"];
+}

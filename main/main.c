@@ -1,7 +1,60 @@
-/*
-    Final year project
-    Vladislavas Putys
+/**
+ * \mainpage The Index Page of the Interactive Chess Board project
+ *
+ * @section intro_main Introduction
+ * 
+ * This is a final year project made by Vladislavas Putys for Computing Project module at University of the West of England (UWE), Bristol, United Kingdom.
+ * 
+ * To see the README file please click @ref readme_link "here".
+ * 
+ * @section services_list Services
+ * 
+ * @ref chess_engine_page "Chess Engine Service"
+ * 
+ * @ref device_service_page "Device Service"
+ * 
+ * @ref display_service_page "Display Service"
+ * 
+ * @ref led_service_page "LED Service"
+ * 
+ * @ref common_page "Common components"
+ * 
+ * @ref logger_service_page "Logger Service"
+ * 
 */
+
+/**
+ * \page chess_engine_page Chess Engine Service
+ * 
+ * please refer to @ref chess_engine.h "Header"
+*/
+/**
+ * \page device_service_page Device Service
+ * 
+ * please refer to @ref device.h "Header"
+*/
+/**
+ * \page display_service_page Display Service
+ * 
+ * please refer to @ref display_service.h "Header"
+*/
+/**
+ * \page led_service_page LED Service
+ * 
+ * please refer to @ref led_service.h "Header"
+*/
+/**
+ * \page common_page Common components
+ * 
+ * please refer to @ref common_components.h "Header"
+*/
+/**
+ * \page logger_service_page Logger Service
+ * 
+ * please refer to @ref logger_service.h "Header"
+*/
+
+
 /*
  * SPDX-FileCopyrightText: 2010-2022 Espressif Systems (Shanghai) CO LTD
  *

@@ -1,0 +1,12 @@
+digraph "ESP32_LED_STRIP" {
+  compound=true
+  node [ fontsize="10", fontname="Helvetica"];
+  edge [ labelfontsize="10", labelfontname="Helvetica"];
+  subgraph clusterdir_a1cb1fbe218a0fd9198c95a6932f052b {
+    graph [ bgcolor="#eeeeff", pencolor="black", label="" URL="dir_a1cb1fbe218a0fd9198c95a6932f052b.html"];
+    dir_a1cb1fbe218a0fd9198c95a6932f052b [shape=plaintext label="ESP32_LED_STRIP"];
+    dir_cec2098065e09a8606c871c47d0c604d [shape=box label="components" color="red" fillcolor="white" style="filled" URL="dir_cec2098065e09a8606c871c47d0c604d.html"];
+    dir_cf5bfc99435a7a2f9f6f04574f3cd491 [shape=box label="main" color="black" fillcolor="white" style="filled" URL="dir_cf5bfc99435a7a2f9f6f04574f3cd491.html"];
+  }
+  dir_cf5bfc99435a7a2f9f6f04574f3cd491->dir_cec2098065e09a8606c871c47d0c604d [headlabel="1", labeldistance=1.5 headhref="dir_000070_000071.html"];
+}
