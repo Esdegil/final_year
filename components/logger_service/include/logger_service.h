@@ -1,3 +1,11 @@
+/**
+* @file logger_service.h
+* @brief File contating all-in-one macro for logging.
+*
+* @author Vladislavas Putys
+*
+*/
+
 #include "common_components.h"
 
 #include "esp_log.h"

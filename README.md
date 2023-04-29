@@ -1,6 +1,6 @@
-# final year project Vlad
+# final year project Vlad {#readme_link}
 
-# version number v1.1
+# version number v1.2
 
 ## v1.1 Improved UX by better Display and LED Service integration across the codebase.
 ## v1.0 Minimal requirements complete. Implemented game engine with some things still left to do.
@@ -8,6 +8,10 @@
 
 ## The plan is to merge dev to master once in a week with following notation vX.Y
 ### Y will be changed weekly and X should be changed with major updates such as finishing minimal requirements, etc.
+
+## Documentation
+
+to get documetation run `doxygen Doxyfile` from the root directory.
 
 ## Instructions to run everything (in case I forget)
 After finishing changes to the image do (from root dir in terminal)
@@ -34,9 +38,7 @@ Potentially usable: 5, 15, 2
 # Important TODOs and known problems
 ### King vs king problem
 happens when the only figures on the board are 2 kings. Because of how `check_all_enemy_moves_for_pos()` function works.
-### Requires passing (pawn turning into queen)
-Conditions are done. implementation needed
-### Requires castle option.
+### Requires castle option. (cannot be tested without 8x8 board)
 Not sure if can be done before moving to 8x8 board.
 ### King not being able to move out of the check (solved in 1.0)
 Note: looks like I've fixed it, but it's poorly tested. Might be really buggy
