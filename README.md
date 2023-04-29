@@ -1,6 +1,6 @@
 # final year project Vlad {#readme_link}
 
-# version number v1.1
+# version number v1.2
 
 ## v1.1 Improved UX by better Display and LED Service integration across the codebase.
 ## v1.0 Minimal requirements complete. Implemented game engine with some things still left to do.
@@ -38,9 +38,7 @@ Potentially usable: 5, 15, 2
 # Important TODOs and known problems
 ### King vs king problem
 happens when the only figures on the board are 2 kings. Because of how `check_all_enemy_moves_for_pos()` function works.
-### Requires passing (pawn turning into queen)
-Conditions are done. implementation needed
-### Requires castle option.
+### Requires castle option. (cannot be tested without 8x8 board)
 Not sure if can be done before moving to 8x8 board.
 ### King not being able to move out of the check (solved in 1.0)
 Note: looks like I've fixed it, but it's poorly tested. Might be really buggy
