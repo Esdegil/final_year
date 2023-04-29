@@ -1,7 +1,8 @@
-# final year project Vlad {#readme_link}
+# Final Year Project. Interactive Chess Board. Vladislavas Putys {#readme_link}
 
 # version number v1.2
 
+## v1.2 Impossible moves not allowed, Documentation can be generated with the used of doxygen.
 ## v1.1 Improved UX by better Display and LED Service integration across the codebase.
 ## v1.0 Minimal requirements complete. Implemented game engine with some things still left to do.
 ## v0.2-0.3 Minimal requirements almost complete. Input matrix is connected with chess engine and led service.
