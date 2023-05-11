@@ -9,7 +9,7 @@
 #define TASK_NAME "led_service_task"
 
 struct led_color_t colour_red = {
-    .red = 10,
+    .red = 100,
     .green = 1,
     .blue = 1
 };
@@ -17,7 +17,7 @@ struct led_color_t colour_red = {
 
 struct led_color_t colour_green = {
     .red = 1,
-    .green = 10,
+    .green = 100,
     .blue = 1
 };
 
@@ -30,9 +30,9 @@ struct led_color_t colour_blue = {
 
 
 struct led_color_t colour_purple = {
-    .red = 10,
+    .red = 100,
     .green = 1,
-    .blue = 10
+    .blue = 100
 };
 
 
@@ -191,7 +191,7 @@ esp_err_t led_test(){
         }
         vTaskDelay(100/portTICK_PERIOD_MS);
     }
-
+    led_clear_stripe();
     return ret;
 }
 
@@ -246,8 +246,6 @@ esp_err_t led_test3(){
 
 static bool access_lock(){
 
-    ESP_LOG(ERROR, TAG, "Initialised in lock %d", local_data.initialised);
-
     if (!local_data.initialised){
         ESP_LOG(ERROR, TAG, "led  service is not initialised.");
         return false;
@@ -298,6 +296,8 @@ esp_err_t led_op_general(uint8_t *arr, uint8_t counter, bool white){
         for (int i = 0; i < counter; i++){
             if (!led_strip_set_pixel_color(&local_data.led_strip, arr[i], colour)){
                 ESP_LOG(ERROR, TAG, "Failed to set colour for pixel %d", arr[i]);
+                release_lock();
+                return ESP_FAIL; 
             }
         }
         if (!led_strip_show(&local_data.led_strip)) {

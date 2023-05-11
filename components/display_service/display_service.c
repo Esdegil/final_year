@@ -104,6 +104,7 @@ static void display_service_task(void *args) {
 #if CONFIG_SSD1306_128x64
     ESP_LOG(INFO, TAG, "Set to 128x64");
     ssd1306_init(&local_data.display, 128, 64);
+
 #endif
 
     ssd1306_clear_screen(&local_data.display, false);
@@ -132,6 +133,7 @@ static void display_service_task(void *args) {
                             
                             temp_message[j] = message_to_display.message[j + (i * 16)]; 
                         }
+                        //ssd1306_flip(&temp_message, strlen(temp_message));
                         ssd1306_display_text(&local_data.display, i, temp_message, strlen(temp_message), false);
                         memset(temp_message, 0, 16);    
                     } 

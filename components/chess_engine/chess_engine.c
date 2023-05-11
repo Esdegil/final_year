@@ -36,7 +36,7 @@
 #define CALCULATIONS_WITHOUT_LEDS false
 #define CALCULATIONS_WITH_LEDS true
 
-#define CHESS_ENGINE_TASK_SIZE configMINIMAL_STACK_SIZE*8
+#define CHESS_ENGINE_TASK_SIZE configMINIMAL_STACK_SIZE*12
 
 typedef struct local_data{
 
@@ -126,8 +126,95 @@ esp_err_t chess_engine_init(){
     local_data.checkmate = false;
 
     if (FULL_BOARD){
-        // TODO: later fill this
-    } else { // assuming 3x3 prototype
+        // Default setup
+
+        for (int i = 0; i < MATRIX_Y; i++){
+            for (int j = 0; j < MATRIX_X; j++){
+                local_data.board.board[i][j].figure_type = FIGURE_END_LIST;
+            }
+        }
+
+        local_data.board.white_turn = true;
+
+
+
+    // White figures init
+
+        
+        local_data.board.board[BOARD_MAIN_FIGURE_START_WHITE][0].figure_type = FIGURE_ROOK;
+        local_data.board.board[BOARD_MAIN_FIGURE_START_WHITE][1].figure_type = FIGURE_KNIGHT;
+        local_data.board.board[BOARD_MAIN_FIGURE_START_WHITE][2].figure_type = FIGURE_BISHOP;
+        local_data.board.board[BOARD_MAIN_FIGURE_START_WHITE][3].figure_type = FIGURE_QUEEN;
+
+        local_data.board.board[BOARD_MAIN_FIGURE_START_WHITE][4].figure_type = FIGURE_KING;
+        local_data.board.board[BOARD_MAIN_FIGURE_START_WHITE][5].figure_type = FIGURE_BISHOP;
+        local_data.board.board[BOARD_MAIN_FIGURE_START_WHITE][6].figure_type = FIGURE_KNIGHT;
+        local_data.board.board[BOARD_MAIN_FIGURE_START_WHITE][7].figure_type = FIGURE_ROOK;
+
+
+        for (int i = 0; i < BOARD_PAWN_START_LINE_WHITE+1; i++){
+            for (int j = 0; j < MATRIX_X; j++){
+                local_data.board.board[i][j].white = true;
+                local_data.board.board[i][j].led_op = &led_op_general;
+            }
+        }
+
+        for (int i = 0; i < MATRIX_X; i++){
+            local_data.board.board[BOARD_PAWN_START_LINE_WHITE][i].figure_type = FIGURE_PAWN;
+        }
+        
+
+        /*
+        for (int i = 0; i < MATRIX_X; i++){
+            local_data.board.board[i][0].figure_type = FIGURE_PAWN;
+            local_data.board.board[i][0].white = true;
+            local_data.board.board[i][0].led_op = &led_op_general;
+
+            local_data.board.board[0][i].figure_type = FIGURE_PAWN;
+            local_data.board.board[0][i].white = true;
+            local_data.board.board[0][i].led_op = &led_op_general;
+            
+        }
+        local_data.board.board[0][7].figure_type = FIGURE_END_LIST;
+
+        local_data.board.board[3][7].figure_type = FIGURE_PAWN;
+        local_data.board.board[3][7].white = true;
+        local_data.board.board[3][7].led_op = &led_op_general;
+        */
+
+
+    // Black figures init
+        
+        
+        local_data.board.board[BOARD_MAIN_FIGURE_START_BLACK][0].figure_type = FIGURE_ROOK;
+        local_data.board.board[BOARD_MAIN_FIGURE_START_BLACK][1].figure_type = FIGURE_KNIGHT;
+        local_data.board.board[BOARD_MAIN_FIGURE_START_BLACK][2].figure_type = FIGURE_BISHOP;
+        local_data.board.board[BOARD_MAIN_FIGURE_START_BLACK][3].figure_type = FIGURE_KING;
+
+        local_data.board.board[BOARD_MAIN_FIGURE_START_BLACK][4].figure_type = FIGURE_QUEEN;
+        local_data.board.board[BOARD_MAIN_FIGURE_START_BLACK][5].figure_type = FIGURE_BISHOP;
+        local_data.board.board[BOARD_MAIN_FIGURE_START_BLACK][6].figure_type = FIGURE_KNIGHT;
+        local_data.board.board[BOARD_MAIN_FIGURE_START_BLACK][7].figure_type = FIGURE_ROOK;
+
+
+        for (int i = BOARD_MAIN_FIGURE_START_BLACK; i > BOARD_PAWN_START_LINE_BLACK-1; i--){
+            for (int j = 0; j < MATRIX_X; j++){
+                local_data.board.board[i][j].white = false;
+                local_data.board.board[i][j].led_op = &led_op_general;
+            }
+        }
+
+        for (int i = 0; i < MATRIX_X; i++){
+            local_data.board.board[BOARD_PAWN_START_LINE_BLACK][i].figure_type = FIGURE_PAWN;
+        }
+        
+
+
+    // Rest of the board
+        
+
+
+    } else { // assuming 4x4 prototype
 
         local_data.board.white_turn = true;
 
@@ -1016,19 +1103,22 @@ static esp_err_t rook_led_calculation(figure_position_t pos, uint8_t **led_array
     
     *led_array_ptr = NULL;
 
-    *led_array_ptr = (uint8_t*)calloc(total_cells, sizeof(uint8_t));
+    if (total_cells != 0) {
 
-    if (!led_array_ptr){
-        ESP_LOG(ERROR, TAG, "Failed to malloc. Aborting");
-        led_array_ptr = NULL;
-        return ESP_FAIL;
+        *led_array_ptr = (uint8_t*)calloc(total_cells, sizeof(uint8_t));
+
+        if (!led_array_ptr){
+            ESP_LOG(ERROR, TAG, "Failed to malloc. Aborting");
+            led_array_ptr = NULL;
+            return ESP_FAIL;
+        }
+
+        *counter = 0;
+
+        populate_led_array_direct(*led_array_ptr, forward_cells, backward_cells, right_cells, left_cells, pos, counter);
+
+        ESP_LOG(WARN, TAG, "Array 0 after populating %d", *led_array_ptr[0]);
     }
-
-    *counter = 0;
-
-    populate_led_array_direct(*led_array_ptr, forward_cells, backward_cells, right_cells, left_cells, pos, counter);
-
-    ESP_LOG(WARN, TAG, "Array 0 after populating %d", *led_array_ptr[0]);
 
     *counter = total_cells;
 
@@ -1144,7 +1234,7 @@ static esp_err_t knight_led_calculation(figure_position_t pos, uint8_t **led_arr
                     empty_cells++;
                 }
             } else {
-                ESP_LOG(WARN, TAG, "Y - 2 x + 1");
+                ESP_LOG(WARN, TAG, "Y - 2 x + 1, %d:%d", pos.pos_y-2, pos.pos_x+1);
                 //array[empty_cells] = (((pos.pos_y-2)*MATRIX_Y) + pos.pos_x+1);
                 array[empty_cells] = MATRIX_TO_ARRAY_CONVERSION((pos.pos_y-2), (pos.pos_x+1));
                     
@@ -1213,7 +1303,7 @@ static esp_err_t knight_led_calculation(figure_position_t pos, uint8_t **led_arr
                     empty_cells++;
                 }
             } else {
-                ESP_LOG(WARN, TAG, "Y - 1 x + 2");
+                ESP_LOG(WARN, TAG, "Y - 1 x + 2, %d:%d", pos.pos_y-1, pos.pos_x+2);
                 //array[empty_cells] = (((pos.pos_y-1)*MATRIX_Y) + pos.pos_x+2);
                 array[empty_cells] = MATRIX_TO_ARRAY_CONVERSION((pos.pos_y-1), (pos.pos_x+2));
                 empty_cells++;
@@ -1553,7 +1643,8 @@ static esp_err_t queen_led_calculation(figure_position_t pos, uint8_t **led_arra
         // TODO: return?
     }
     
-    (*counter)++;
+    // TODO: why this is here
+    //(*counter)++;
 
     ESP_LOG(INFO, TAG, "Calculating diagonal moves for queen");
 
@@ -1734,6 +1825,7 @@ static esp_err_t queen_led_calculation(figure_position_t pos, uint8_t **led_arra
 
     if (total_combined == 0) {
         ESP_LOG(WARN, TAG, "No possible moves for queen or calculations are wrong");
+        *counter = total_combined;
         return ESP_FAIL; // TODO: probably not needed. Same thing in bishop
     }
 
@@ -2717,6 +2809,10 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
             if (queen_led_calculation(updated_pos, &led_array_ptr, &counter) != ESP_OK){
 
             }
+            if (counter <= 0){
+                ESP_LOG(WARN, TAG, "No moves for queen");
+                break;
+            }
             if (local_data.counter_attackable != 0){
                 ESP_LOG(WARN, TAG, "attackable counter %d", local_data.counter_attackable);
                 for (int i = 0; i < local_data.counter_attackable; i++) {
@@ -2919,8 +3015,14 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
 
             ESP_LOG(INFO, TAG, "Passed traj counter %d", traj_counter_passed);
 
+            ESP_LOG(WARN, TAG, "Current check trajectory");
+            for (int i = 0; i < traj_counter_passed; i++){
+                ESP_LOG(WARN, TAG, "Trajectory %d %d", i, local_data.check_trajectory[i]);
+            }
+
             if (current_figure != FIGURE_KING || (current_figure == FIGURE_KING && traj_counter_passed == 1)) {
 
+                ESP_LOG(INFO, TAG, "Not king or counter 1");
                 for (int i = 0; i < counter; i++){
                     for (int j = 0; j < traj_counter_passed; j++){
 
@@ -2979,6 +3081,7 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
                     local_data.possible_moves_array = led_array_ptr;
                     local_data.possible_moves_counter = valid_moves_counter;
                     local_data.board.board[updated_pos.pos_y][updated_pos.pos_x].led_op(led_array_ptr, valid_moves_counter, white);
+
                 }
             } else {
                 ESP_LOG(INFO, TAG, "No moves for this figure will protect king from check");
@@ -3009,14 +3112,15 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
                 local_data.possible_moves_array = led_array_ptr;
                 local_data.possible_moves_counter = counter;
                 local_data.board.board[updated_pos.pos_y][updated_pos.pos_x].led_op(led_array_ptr, counter, white);
+                
             }
 
             
         }
         
-        
-    
-
+    if (local_data.possible_moves_array){
+       
+    }
     // uncomment if problems with heap appear
     /*
     heap_trace_stop();
@@ -3024,13 +3128,19 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
     */
 
     if (!check_happened_this_turn){
-        if (led_array_ptr != NULL){
-            ESP_LOG(WARN, TAG, "FREE led_array_ptr main");
-            free(led_array_ptr);
-            led_array_ptr = NULL;
+        if (!check){
+            if (led_array_ptr != NULL && local_data.possible_moves_array != NULL){
+                ESP_LOG(WARN, TAG, "FREE led_array_ptr main");
+                free(led_array_ptr);
+                led_array_ptr = NULL;
+            }
         }
     } else {
         ESP_LOG(WARN, TAG, "Check happened this turn. need to check if any enemy figures or moves can protect king from check");
+        ESP_LOG(INFO, TAG, "Check trajectory");
+        for (int i = 0; i < local_data.trajectory_counter; i++){
+            ESP_LOG(INFO, TAG, "Check traj %d %d", i, local_data.check_trajectory[i]);
+        }
         display_send_message_to_display("Check!");
         if (checkmate_check(updated_pos) != ESP_OK){
             ESP_LOG(ERROR, TAG, "No possible moves left to do");

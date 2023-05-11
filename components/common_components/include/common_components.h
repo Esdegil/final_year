@@ -41,14 +41,14 @@ ESP_EVENT_DECLARE_BASE(TEST_EVENTS);
 * @brief number of cells on X coordinate.
 *
 */
-#define MATRIX_X 4
+#define MATRIX_X 8
 
 /** 
 * @def MATRIX_Y
 * @brief number of cells on Y coordinate.
 *
 */
-#define MATRIX_Y 4
+#define MATRIX_Y 8
 
 /** 
 * @def FULL_BOARD
