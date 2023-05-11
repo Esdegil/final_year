@@ -189,9 +189,9 @@ esp_err_t chess_engine_init(){
         local_data.board.board[BOARD_MAIN_FIGURE_START_BLACK][0].figure_type = FIGURE_ROOK;
         local_data.board.board[BOARD_MAIN_FIGURE_START_BLACK][1].figure_type = FIGURE_KNIGHT;
         local_data.board.board[BOARD_MAIN_FIGURE_START_BLACK][2].figure_type = FIGURE_BISHOP;
-        local_data.board.board[BOARD_MAIN_FIGURE_START_BLACK][3].figure_type = FIGURE_KING;
+        local_data.board.board[BOARD_MAIN_FIGURE_START_BLACK][3].figure_type = FIGURE_QUEEN;
 
-        local_data.board.board[BOARD_MAIN_FIGURE_START_BLACK][4].figure_type = FIGURE_QUEEN;
+        local_data.board.board[BOARD_MAIN_FIGURE_START_BLACK][4].figure_type = FIGURE_KING;
         local_data.board.board[BOARD_MAIN_FIGURE_START_BLACK][5].figure_type = FIGURE_BISHOP;
         local_data.board.board[BOARD_MAIN_FIGURE_START_BLACK][6].figure_type = FIGURE_KNIGHT;
         local_data.board.board[BOARD_MAIN_FIGURE_START_BLACK][7].figure_type = FIGURE_ROOK;
