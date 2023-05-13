@@ -93,7 +93,7 @@
 typedef struct local_data {
 
     esp_event_loop_handle_t handle;
-
+    bool reboot_request;
 } local_data_t;
 
 static local_data_t local_data;
@@ -122,6 +122,14 @@ esp_err_t init_services(){
         ESP_LOG(ERROR, TAG, "Failed to init led service. Aborting.");
         return ESP_FAIL;
     }
+#endif
+#ifdef LED_TEST
+        vTaskDelay(3000/portTICK_PERIOD_MS);
+        if (led_test() != ESP_OK){
+            ESP_LOG(ERROR, TAG, "LED STARTUP TEST FAILED");
+            local_data.reboot_request = true;
+        }
+        
 #endif
 
     if (device_init() != ESP_OK){
@@ -161,6 +169,7 @@ static void main_event_handler(void* handler_args, esp_event_base_t base, int32_
 #endif
 void app_main(void)
 {
+    local_data.reboot_request = false;
     ESP_LOG(INFO, TAG,"This is Vlads Final Year Project!̣");
     ESP_LOG(INFO, TAG, "Software version: v%d.%d", VERSION_NUMBER_Y, VERSION_NUMBER_X);
 
@@ -199,7 +208,7 @@ void app_main(void)
         reboot_reqested = true;
     }
 
-    gpio_set_direction(GPIO_NUM_21, GPIO_MODE_OUTPUT);
+ 
 
     // TESTING EVENTS
 #ifdef WORKING_ON_EVENTS
@@ -220,17 +229,6 @@ void app_main(void)
     ESP_LOG(ERROR, TAG, "Error code: %d", ret);
 #endif
 
-    uint8_t level = 15;
-    gpio_num_t num = GPIO_NUM_34;
-    gpio_num_t num2 = GPIO_NUM_32;
-    gpio_mode_t mode = GPIO_MODE_INPUT;
-    gpio_mode_t mode2 = GPIO_MODE_OUTPUT;
-
-    gpio_set_direction(num, mode);
-    gpio_set_direction(num2, mode2);
-    device_set_pin_level(num2, 1);
-
-    device_get_pin_level(num, &level);
 
 
 #ifdef WORKING_ON_EVENTS
@@ -251,14 +249,7 @@ void app_main(void)
     ESP_LOG(WARN, TAG, "Display is set to be not used");
 #endif
 
-#ifdef LED_TEST
-        vTaskDelay(3000/portTICK_PERIOD_MS);
-        if (led_test() != ESP_OK){
-            ESP_LOG(ERROR, TAG, "LED STARTUP TEST FAILED");
-            reboot_reqested = true;
-        }
-        
-#endif
+
 
     while(1) {
 
@@ -275,7 +266,7 @@ void app_main(void)
             ESP_LOG(ERROR, TAG, "Failed to post event");
         }*/
         
-        if (reboot_reqested){
+        if (reboot_reqested || local_data.reboot_request){
             main_restart_esp();
         }
         vTaskDelay(1000 / portTICK_PERIOD_MS);

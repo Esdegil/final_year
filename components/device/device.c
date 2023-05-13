@@ -110,23 +110,31 @@ static void print_array(){
     }
 }
 
-#define OUT_PIN_1 32
-#define OUT_PIN_2 33
-#define OUT_PIN_3 25
-#define OUT_PIN_4 26
+#define OUT_PIN_1 23
+#define OUT_PIN_2 18
+#define OUT_PIN_3 5
+#define OUT_PIN_4 17
+#define OUT_PIN_5 16
+#define OUT_PIN_6 4
+#define OUT_PIN_7 2
+#define OUT_PIN_8 26
 
-#define IN_PIN_1 34
-#define IN_PIN_2 36
-#define IN_PIN_3 39
+#define IN_PIN_1 36
+#define IN_PIN_2 39
+#define IN_PIN_3 34
 #define IN_PIN_4 35
+#define IN_PIN_5 32
+#define IN_PIN_6 33
+#define IN_PIN_7 25
+#define IN_PIN_8 14
 
-#define START_BUTTON_OUT_PIN 23
-#define START_BUTTON_IN_PIN 18
+#define START_BUTTON_OUT_PIN 27
+#define START_BUTTON_IN_PIN 13
 
 int pin_amount = 2;
 
-int out_pins[4] = {32, 33, 25, 26};
-int in_pins[4] = {36, 39, 34, 35};
+int out_pins[MATRIX_Y] = {OUT_PIN_1, OUT_PIN_2, OUT_PIN_3, OUT_PIN_4, OUT_PIN_5, OUT_PIN_6, OUT_PIN_7, OUT_PIN_8};
+int in_pins[MATRIX_X] = {IN_PIN_1, IN_PIN_2, IN_PIN_3, IN_PIN_4, IN_PIN_5, IN_PIN_6, IN_PIN_7, IN_PIN_8};
 
 static void device_task(){
 
@@ -155,16 +163,39 @@ static void device_task(){
     gpio_reset_pin(IN_PIN_2);
     gpio_reset_pin(IN_PIN_3);
     gpio_reset_pin(IN_PIN_4);
+    gpio_reset_pin(IN_PIN_5);
+    gpio_reset_pin(IN_PIN_6);
+    gpio_reset_pin(IN_PIN_7);
+    gpio_reset_pin(IN_PIN_8);
 
     gpio_reset_pin(OUT_PIN_1);
     gpio_reset_pin(OUT_PIN_2);
     gpio_reset_pin(OUT_PIN_3);
     gpio_reset_pin(OUT_PIN_4);
+    gpio_reset_pin(OUT_PIN_5);
+    gpio_reset_pin(OUT_PIN_6);
+    gpio_reset_pin(OUT_PIN_7);
+    gpio_reset_pin(OUT_PIN_8);
+
+    
 
     gpio_set_pull_mode(IN_PIN_1, GPIO_PULLDOWN_ONLY);
     gpio_set_pull_mode(IN_PIN_2, GPIO_PULLDOWN_ONLY);
     gpio_set_pull_mode(IN_PIN_3, GPIO_PULLDOWN_ONLY);
     gpio_set_pull_mode(IN_PIN_4, GPIO_PULLDOWN_ONLY);
+    gpio_set_pull_mode(IN_PIN_5, GPIO_PULLDOWN_ONLY);
+    gpio_set_pull_mode(IN_PIN_6, GPIO_PULLDOWN_ONLY);
+    gpio_set_pull_mode(IN_PIN_7, GPIO_PULLDOWN_ONLY);
+    gpio_set_pull_mode(IN_PIN_8, GPIO_PULLDOWN_ONLY);
+
+    gpio_set_pull_mode(OUT_PIN_1, GPIO_PULLDOWN_ONLY);
+    gpio_set_pull_mode(OUT_PIN_2, GPIO_PULLDOWN_ONLY);
+    gpio_set_pull_mode(OUT_PIN_3, GPIO_PULLDOWN_ONLY);
+    gpio_set_pull_mode(OUT_PIN_4, GPIO_PULLDOWN_ONLY);
+    gpio_set_pull_mode(OUT_PIN_5, GPIO_PULLDOWN_ONLY);
+    gpio_set_pull_mode(OUT_PIN_6, GPIO_PULLDOWN_ONLY);
+    gpio_set_pull_mode(OUT_PIN_7, GPIO_PULLDOWN_ONLY);
+    gpio_set_pull_mode(OUT_PIN_8, GPIO_PULLDOWN_ONLY);
     //gpio_set_pull_mode(OUT_PIN_1, GPIO_PULLDOWN_ONLY);
     //gpio_set_pull_mode(OUT_PIN_2, GPIO_PULLDOWN_ONLY);
     //gpio_set_pull_mode(OUT_PIN_3, GPIO_PULLDOWN_ONLY);
@@ -175,13 +206,32 @@ static void device_task(){
     gpio_set_direction(IN_PIN_2, GPIO_MODE_INPUT);
     gpio_set_direction(IN_PIN_3, GPIO_MODE_INPUT);
     gpio_set_direction(IN_PIN_4, GPIO_MODE_INPUT);
+    gpio_set_direction(IN_PIN_5, GPIO_MODE_INPUT);
+    gpio_set_direction(IN_PIN_6, GPIO_MODE_INPUT);
+    gpio_set_direction(IN_PIN_7, GPIO_MODE_INPUT);
+    gpio_set_direction(IN_PIN_8, GPIO_MODE_INPUT);
+
     gpio_set_direction(OUT_PIN_1, GPIO_MODE_OUTPUT);
     gpio_set_direction(OUT_PIN_2, GPIO_MODE_OUTPUT);
     gpio_set_direction(OUT_PIN_3, GPIO_MODE_OUTPUT);
     gpio_set_direction(OUT_PIN_4, GPIO_MODE_OUTPUT);
+    gpio_set_direction(OUT_PIN_5, GPIO_MODE_OUTPUT);
+    gpio_set_direction(OUT_PIN_6, GPIO_MODE_OUTPUT);
+    gpio_set_direction(OUT_PIN_7, GPIO_MODE_OUTPUT);
+    gpio_set_direction(OUT_PIN_8, GPIO_MODE_OUTPUT);
 
-    gpio_reset_pin(START_BUTTON_OUT_PIN);
-    gpio_reset_pin(START_BUTTON_IN_PIN);
+    gpio_config_t out14_conf = {
+        .intr_type = GPIO_INTR_DISABLE,
+        .mode = GPIO_MODE_INPUT,
+        .pin_bit_mask = 1ULL<<GPIO_NUM_14,
+        .pull_down_en = GPIO_PULLDOWN_ONLY,
+        .pull_up_en =  GPIO_PULLUP_DISABLE
+    };
+
+    gpio_config(&out14_conf);
+
+    gpio_reset_pin(GPIO_NUM_27);
+    gpio_reset_pin(GPIO_NUM_13);
 
     gpio_set_pull_mode(START_BUTTON_OUT_PIN, GPIO_PULLDOWN_ONLY);
     gpio_set_pull_mode(START_BUTTON_IN_PIN, GPIO_PULLDOWN_ONLY);
@@ -189,6 +239,27 @@ static void device_task(){
     gpio_set_direction(START_BUTTON_OUT_PIN, GPIO_MODE_OUTPUT);
     gpio_set_direction(START_BUTTON_IN_PIN, GPIO_MODE_INPUT);
 
+    gpio_config_t out13_conf = {
+        .intr_type = GPIO_INTR_DISABLE,
+        .mode = GPIO_MODE_INPUT,
+        .pin_bit_mask = 1ULL<<GPIO_NUM_13,
+        .pull_down_en = GPIO_PULLDOWN_ONLY,
+        .pull_up_en =  GPIO_PULLUP_DISABLE
+    };
+
+    gpio_config(&out13_conf);
+
+    /*
+    gpio_config_t out8_conf = {
+        .intr_type = GPIO_INTR_DISABLE,
+        .mode = GPIO_MODE_OUTPUT,
+        .pin_bit_mask = 1ULL<<GPIO_N,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .pull_up_en =  GPIO_PULLUP_DISABLE
+    };
+
+    gpio_config(&out8_conf);
+    */
 #ifdef TEST
     gpio_set_pull_mode(22, GPIO_PULLDOWN_ONLY);
     gpio_set_pull_mode(19, GPIO_PULLDOWN_ONLY);
@@ -242,6 +313,7 @@ static void device_task(){
             if (local_data.board.board[i][j].figure_type != FIGURE_END_LIST){
                 ESP_LOG(WARN, TAG, "Checking figure type %d", local_data.board.board[i][j].figure_type);
                 device_set_pin_level(out_pins[i], 1);
+                ESP_LOG(ERROR, TAG, "Seeting %d", out_pins[i]);
                 vTaskDelay(500/portTICK_PERIOD_MS);
                 device_get_pin_level(in_pins[j], &level);
                 ESP_LOG(WARN, TAG, "level after read %d on pin %d", level, in_pins[j]);
@@ -273,7 +345,9 @@ static void device_task(){
 
                     converted_pos = MATRIX_TO_ARRAY_CONVERSION((i), (j));
                     led_array[0] = converted_pos;
-                    led_op_general(led_array, 1, white_figure);
+                    if (led_op_general(led_array, 1, white_figure) != ESP_OK){
+                        ESP_LOG(ERROR, TAG, "Failed to highlight required square");
+                    }
 
                     level = 0;
                     while(!(bool)level){
@@ -296,7 +370,7 @@ static void device_task(){
         device_get_pin_level(START_BUTTON_IN_PIN, &start_level);
         button_ready_to_start = start_level ? true : false;
     
-
+        ESP_LOG(INFO, TAG, "level %d", start_level);
 
         for(int i = 0; i < MATRIX_X; i++){
                 for (int j = 0; j < MATRIX_Y; j++){
