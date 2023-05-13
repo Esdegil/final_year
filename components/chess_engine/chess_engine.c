@@ -2391,12 +2391,7 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
         current_figure = local_data.board.board[updated_pos.pos_y][updated_pos.pos_x].figure_type;
         check = local_data.check;
 
-        if (local_data.temp_led_array){
-            ESP_LOG(WARN, TAG, "FREE local_data.temp_led_array");
-            free(local_data.temp_led_array);
-            local_data.temp_led_array = NULL;
-        }
-        local_data.temp_counter = 0;
+        
 
         release_lock();
     } else {
@@ -2422,7 +2417,9 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
     switch (current_figure){ 
         case FIGURE_PAWN:
             if (pawn_led_calculation(updated_pos, &led_array_ptr, &counter) != ESP_OK){
-
+                if (show_leds) {
+                        led_no_move_possible(MATRIX_TO_ARRAY_CONVERSION(updated_pos.pos_y, updated_pos.pos_x));
+                    }
             }
             for (int i = 0; i < counter; i++){
                 ESP_LOG(WARN, TAG, "returned led_array_ptr i %d val %d", i, led_array_ptr[i]);
@@ -2438,13 +2435,13 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
 
                             local_data.temp_led_array = led_array_ptr;
                             local_data.temp_counter = counter;
-                            /*
-                            if (led_array_ptr){
-                                ESP_LOG(WARN, TAG, "FREE led_array_ptr");
-                                free(led_array_ptr);
-                                led_array_ptr = NULL;
-                            } 
-                            */
+                            if (local_data.temp_led_array){
+                                ESP_LOG(WARN, TAG, "FREE local_data.temp_led_array");
+                                free(local_data.temp_led_array);
+                                local_data.temp_led_array = NULL;
+                            }
+                            local_data.temp_counter = 0;
+                            
                             return ESP_ERR_NO_MEM;
 
                         }
@@ -2499,7 +2496,9 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
             break;
         case FIGURE_ROOK:
             if (rook_led_calculation(updated_pos, &led_array_ptr, &counter) != ESP_OK) {
-
+                if (show_leds) {
+                        led_no_move_possible(MATRIX_TO_ARRAY_CONVERSION(updated_pos.pos_y, updated_pos.pos_x));
+                    }
             }
             if (local_data.counter_attackable != 0){
                 ESP_LOG(WARN, TAG, "attackable counter %d", local_data.counter_attackable);
@@ -2622,7 +2621,9 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
             break;
         case FIGURE_KNIGHT:
             if (knight_led_calculation(updated_pos, &led_array_ptr, &counter) != ESP_OK){
-
+                if (show_leds) {
+                        led_no_move_possible(MATRIX_TO_ARRAY_CONVERSION(updated_pos.pos_y, updated_pos.pos_x));
+                    }
             }
 
             for (int i = 0; i < counter; i++){
@@ -2703,7 +2704,9 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
             break;
         case FIGURE_BISHOP:
             if (bishop_led_calculation(updated_pos, &led_array_ptr, &counter) != ESP_OK){
-
+                if (show_leds) {
+                        led_no_move_possible(MATRIX_TO_ARRAY_CONVERSION(updated_pos.pos_y, updated_pos.pos_x));
+                    }
             }
             if (local_data.counter_attackable != 0){
                 ESP_LOG(WARN, TAG, "attackable counter %d", local_data.counter_attackable);
@@ -2807,7 +2810,9 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
             break;
         case FIGURE_QUEEN:
             if (queen_led_calculation(updated_pos, &led_array_ptr, &counter) != ESP_OK){
-
+                if (show_leds) {
+                        led_no_move_possible(MATRIX_TO_ARRAY_CONVERSION(updated_pos.pos_y, updated_pos.pos_x));
+                    }
             }
             if (counter <= 0){
                 ESP_LOG(WARN, TAG, "No moves for queen");
@@ -3098,7 +3103,7 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
             for (int i = 0; i < counter; i++) {
                     ESP_LOG(INFO, TAG, "Array %d after returning from function %d", i, led_array_ptr[i]);
             }
-            if (show_leds){
+            
                 ESP_LOG(INFO, TAG, "Showing LEDS");
                 bool white = local_data.board.board[updated_pos.pos_y][updated_pos.pos_x].white;
                 // TODO: this may cause problems as couple other pointer can point to led_array_ptr
@@ -3111,9 +3116,10 @@ static esp_err_t required_leds_calculation(figure_position_t updated_pos, bool s
                     }*/
                 local_data.possible_moves_array = led_array_ptr;
                 local_data.possible_moves_counter = counter;
-                local_data.board.board[updated_pos.pos_y][updated_pos.pos_x].led_op(led_array_ptr, counter, white);
-                
-            }
+                if (show_leds){
+                    local_data.board.board[updated_pos.pos_y][updated_pos.pos_x].led_op(led_array_ptr, counter, white);
+                }                
+            
 
             
         }
@@ -3350,9 +3356,40 @@ static void chess_engine_task(void *args){
                                     local_data.board.board[change_data.pos.pos_y][change_data.pos.pos_x] = local_data.board.board[temp_pos.pos_y][temp_pos.pos_x];
                                     local_data.board.board[temp_pos.pos_y][temp_pos.pos_x].led_op = NULL;
                                     local_data.board.board[temp_pos.pos_y][temp_pos.pos_x].figure_type = FIGURE_END_LIST;
-                                    led_no_move_possible(MATRIX_TO_ARRAY_CONVERSION(change_data.pos.pos_y, change_data.pos.pos_x));
                                     
+                                    
+                                    if (local_data.temp_led_array != NULL && local_data.temp_counter > 0 && !check){
+                                        ESP_LOG(WARN, TAG, "Temp array is still available and it is not check situation");  
+                                        
+                                        
+                                        if (required_leds_calculation(change_data.pos, CALCULATIONS_WITHOUT_LEDS, false) == ESP_OK){
+                                            // TODO: this assumes temp_led_array is unchaged at this point
+                                            ESP_LOG(WARN, TAG, "Returned from required_leds_calculation without problems");
+                                            uint8_t comp_counter = 0;
+                                            for (int i = 0; i < local_data.possible_moves_counter; i++){
+                                                ESP_LOG(DEBUG, TAG, "possible move %d", local_data.possible_moves_array[i]);
+                                                for (int j = 0; j < local_data.temp_counter; j++){
+                                                    ESP_LOG(DEBUG, TAG, "Temp array move %d", local_data.temp_led_array[j]);
+                                                    if (local_data.possible_moves_array[i] == local_data.temp_led_array[j]){
+                                                        local_data.possible_moves_array[comp_counter] = local_data.possible_moves_array[i];
+                                                        comp_counter++;
+                                                    }
+                                                }
+                                            }
+                                            if (comp_counter > 0){
+                                                ESP_LOG(INFO, TAG, "COMP COUNTER IS NOT 0");
+                                                local_data.board.board[change_data.pos.pos_y][change_data.pos.pos_x].led_op(local_data.possible_moves_array, comp_counter, local_data.board.board[change_data.pos.pos_y][change_data.pos.pos_x].white);
+                                            } else {
+                                                led_no_move_possible(MATRIX_TO_ARRAY_CONVERSION(change_data.pos.pos_y, change_data.pos.pos_x));
+                                            }
+                                        }
+
+                                    } else {
+                                        led_no_move_possible(MATRIX_TO_ARRAY_CONVERSION(change_data.pos.pos_y, change_data.pos.pos_x));
+                                    }
                                 } else {
+
+
                                     ESP_LOG(INFO, TAG, "Moving this figure %d:%d won't cause immediate checkmate", change_data.pos.pos_y, change_data.pos.pos_x);
                                     local_data.board.board[change_data.pos.pos_y][change_data.pos.pos_x] = local_data.board.board[temp_pos.pos_y][temp_pos.pos_x];
                                     local_data.board.board[temp_pos.pos_y][temp_pos.pos_x].led_op = NULL;

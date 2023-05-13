@@ -48,9 +48,9 @@ struct led_color_t colour_yellow = {
 
 
 struct led_color_t colour_white = {
-    .red = 100,
-    .green = 100,
-    .blue = 100
+    .red = 200,
+    .green = 200,
+    .blue = 200
 };
 
 

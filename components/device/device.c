@@ -305,9 +305,11 @@ static void device_task(){
     // Board initialisation and alignement loop
 
     uint8_t init_level = 0;
+    uint8_t scn_level = 0;
     char *colour;
     bool at_least_one_missing = true;
     bool white_figure;
+    bool different = false;
     for (int i = 0; i < MATRIX_Y; i++){
         for (int j = 0; j < MATRIX_X; j++){
             if (local_data.board.board[i][j].figure_type != FIGURE_END_LIST){
@@ -316,8 +318,13 @@ static void device_task(){
                 ESP_LOG(ERROR, TAG, "Seeting %d", out_pins[i]);
                 vTaskDelay(500/portTICK_PERIOD_MS);
                 device_get_pin_level(in_pins[j], &level);
+                vTaskDelay(100/portTICK_PERIOD_MS);
+                device_get_pin_level(in_pins[j], &scn_level);
+                if (level != scn_level){
+                    different = true;
+                }
                 ESP_LOG(WARN, TAG, "level after read %d on pin %d", level, in_pins[j]);
-                if ((bool)level != true){
+                if ((bool)scn_level != true && !different){
                     white_figure = local_data.board.board[i][j].white;
                     if (white_figure){
                         colour = "white ";
@@ -415,6 +422,7 @@ static void device_task(){
 
     chess_engine_device_service_ready();
 
+    led_clear_stripe();
     ESP_LOG(INFO, TAG, "Matrices aligned sucessfully and Start button was pressed");
     ESP_LOG(INFO, TAG, "STARTING GAME");
     state_change_data_t changed_state_figure;
