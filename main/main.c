@@ -86,7 +86,7 @@
 #define TAG "MAIN"
 
 #define VERSION_NUMBER_Y 1
-#define VERSION_NUMBER_X 2
+#define VERSION_NUMBER_X 3
 
 #define LED_TEST
 
