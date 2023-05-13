@@ -8,8 +8,12 @@
 #define TAG "LED_SERVICE"
 #define TASK_NAME "led_service_task"
 
+#define LED_OP_READY_BIT_0 (1<<0)
+
+#define LED_CLEAR_BIT_0 (1<<1)
+
 struct led_color_t colour_red = {
-    .red = 10,
+    .red = 100  ,
     .green = 1,
     .blue = 1
 };
@@ -17,7 +21,7 @@ struct led_color_t colour_red = {
 
 struct led_color_t colour_green = {
     .red = 1,
-    .green = 10,
+    .green = 100,
     .blue = 1
 };
 
@@ -30,9 +34,9 @@ struct led_color_t colour_blue = {
 
 
 struct led_color_t colour_purple = {
-    .red = 10,
+    .red = 100,
     .green = 1,
-    .blue = 10
+    .blue = 100
 };
 
 
@@ -44,14 +48,15 @@ struct led_color_t colour_yellow = {
 
 
 struct led_color_t colour_white = {
-    .red = 10,
-    .green = 10,
-    .blue = 10
+    .red = 200,
+    .green = 200,
+    .blue = 200
 };
 
 
 
-#define LED_STRIP_LENGTH ((MATRIX_X * MATRIX_Y))
+//#define LED_STRIP_LENGTH ((MATRIX_X * MATRIX_Y))
+#define LED_STRIP_LENGTH 64
 #define LED_STRIP_RMT_INTR_NUM 19U // Not sure what this exactly is. It was in the initial config for this library
 
 typedef struct led_strip_t led_strip_data_t;
@@ -65,10 +70,14 @@ typedef struct local_data{
 
     SemaphoreHandle_t lock;
 
+    EventGroupHandle_t event_handle;
+
     struct led_color_t led_strip_buf_1[LED_STRIP_LENGTH];
     struct led_color_t led_strip_buf_2[LED_STRIP_LENGTH];
 
     struct led_strip_t led_strip;
+
+    uint8_t led_array[MATRIX_Y*MATRIX_X];
 
 
 } local_data_t;
@@ -100,6 +109,7 @@ esp_err_t led_service_init(){
         return ESP_FAIL;
     }
 
+    local_data.event_handle = xEventGroupCreate(); 
 
     struct led_strip_t led_strip = {
         .rgb_led_type = RGB_LED_TYPE_WS2812,
@@ -142,12 +152,17 @@ static void led_service_task(void *args){
     
     local_data.led_strip.access_semaphore = xSemaphoreCreateBinary();
 
+    
+
     if (!led_strip_init(&local_data.led_strip)){ // TODO: double check if buffers need to be cleared before exiting on fail.
         ESP_LOG(ERROR, TAG, "Failed to initialise LED Strip task (library). Aborting");
         
     } else {
         ESP_LOG(WARN, TAG, "Initialised LED Strip task successfully");
         local_data.led_strip_lib_initialised = true;
+        for (int i = 1; i < MATRIX_X * MATRIX_Y; i+=2){
+            led_strip_set_pixel_color(&local_data.led_strip, i, &colour_white); 
+        }
     }
 
 
@@ -162,10 +177,23 @@ static void led_service_task(void *args){
         ESP_LOG(ERROR, TAG, "Failed to access lock.");
     }
 
-    while (1){
-        //ESP_LOG(INFO, TAG, "%s running.", TASK_NAME);
-     
-        vTaskDelay(2000/portTICK_PERIOD_MS);
+
+    EventBits_t bits;
+    while(1) {
+        
+        bits = xEventGroupWaitBits(local_data.event_handle, LED_OP_READY_BIT_0, pdTRUE, pdTRUE, SECOND_TICK);
+        if ((bits & LED_OP_READY_BIT_0) != 0){
+            ESP_LOG(INFO, TAG, "Received New LED op///////////////////////////////////////////////////////////////////////");
+            if (!led_strip_show(&local_data.led_strip)){
+                ESP_LOG(ERROR, TAG, "Failed to show led strip in task");
+            }
+            for (int i = 1; i < MATRIX_X * MATRIX_Y; i+=2){
+                led_strip_set_pixel_color(&local_data.led_strip, i, &colour_white); 
+            }
+        }
+       
+
+        vTaskDelay(1000/portTICK_PERIOD_MS);
     }
 
 }
@@ -175,34 +203,23 @@ esp_err_t led_test(){
     led_strip_clear(&local_data.led_strip);
     ESP_LOG(INFO, TAG, "Cleared LED strip buffers");
 
+    esp_err_t ret = ESP_OK;
 
-    /*if (led_strip_set_pixel_rgb(&local_data.led_strip, 3, 7, 1, 1)){
-        ESP_LOG(WARN, TAG, "Success");
-    } else {
-        ESP_LOG(ERROR, TAG, "Fail");
-    }*/
-
-    led_strip_set_pixel_color(&local_data.led_strip, 0, &colour_purple);
-    led_strip_set_pixel_color(&local_data.led_strip, 1, &colour_purple);
-    led_strip_set_pixel_color(&local_data.led_strip, 2, &colour_purple);
-    led_strip_set_pixel_color(&local_data.led_strip, 3, &colour_red);
-    led_strip_set_pixel_color(&local_data.led_strip, 4, &colour_red);
-    led_strip_set_pixel_color(&local_data.led_strip, 5, &colour_green);
-    led_strip_set_pixel_color(&local_data.led_strip, 6, &colour_green);
-    led_strip_set_pixel_color(&local_data.led_strip, 7, &colour_yellow);
-    led_strip_set_pixel_color(&local_data.led_strip, 8, &colour_yellow);
-    
-
-
-
-    if (!led_strip_show(&local_data.led_strip)) {
-        ESP_LOG(ERROR, TAG, "Failed to show");
-    } else {
-        ESP_LOG(WARN, TAG, "Showed successfully");
+    for (int i = 0; i < LED_STRIP_LENGTH+1; i++){
+        
+        for (int j = 0; j < i; j++){
+            if (!led_strip_set_pixel_color(&local_data.led_strip, j, &colour_green)){
+                ret = ESP_FAIL;
+            }
+        }
+        ESP_LOG(WARN, TAG, "SHOWWWW2-------------------------------------------------------------------");
+        if (!led_strip_show(&local_data.led_strip)){
+            ret = ESP_FAIL;
+        }
+        vTaskDelay(100/portTICK_PERIOD_MS);
     }
-
-
-    return ESP_OK;
+    led_clear_stripe();
+    return ret;
 }
 
 esp_err_t led_test2(){
@@ -223,7 +240,7 @@ esp_err_t led_test2(){
     led_strip_set_pixel_rgb(&local_data.led_strip, 8, 7, 7, 7);
 
 
-
+    ESP_LOG(WARN, TAG, "SHOWWWW3-------------------------------------------------------------------");
     if (!led_strip_show(&local_data.led_strip)) {
         ESP_LOG(ERROR, TAG, "Failed to show");
     } else {
@@ -243,7 +260,7 @@ esp_err_t led_test3(){
         led_strip_set_pixel_color(&local_data.led_strip, i, &colour_green);
     }
 
-
+    ESP_LOG(WARN, TAG, "SHOWWWW4-------------------------------------------------------------------");
     if (!led_strip_show(&local_data.led_strip)) {
         ESP_LOG(ERROR, TAG, "Failed to show");
     } else {
@@ -255,8 +272,6 @@ esp_err_t led_test3(){
 }
 
 static bool access_lock(){
-
-    ESP_LOG(ERROR, TAG, "Initialised in lock %d", local_data.initialised);
 
     if (!local_data.initialised){
         ESP_LOG(ERROR, TAG, "led  service is not initialised.");
@@ -298,23 +313,26 @@ esp_err_t led_op_general(uint8_t *arr, uint8_t counter, bool white){
         colour = &colour_purple;
     }
 
+    
     if (local_data.led_strip_lib_initialised) {
     if (access_lock()){
-        if (!led_strip_clear(&local_data.led_strip)) {
+        /*if (!led_strip_clear(&local_data.led_strip)) {
             ESP_LOG(ERROR, TAG, "Failed to clear LED strip buffers. Aborting");
             release_lock();
             return ESP_FAIL;
+        }*/
+        for (int i = 1; i < MATRIX_X * MATRIX_Y; i+=2){
+            led_strip_set_pixel_color(&local_data.led_strip, i, &colour_white); 
         }
         for (int i = 0; i < counter; i++){
+            ESP_LOG(INFO, TAG, "Pixel %d", arr[i]);
             if (!led_strip_set_pixel_color(&local_data.led_strip, arr[i], colour)){
                 ESP_LOG(ERROR, TAG, "Failed to set colour for pixel %d", arr[i]);
+                release_lock();
+                return ESP_FAIL; 
             }
         }
-        if (!led_strip_show(&local_data.led_strip)) {
-            ESP_LOG(ERROR, TAG, "Failed to show LED buffer");
-            release_lock();
-            return ESP_FAIL; 
-        }
+        xEventGroupSetBits(local_data.event_handle, LED_OP_READY_BIT_0);
         release_lock();
     } else {
         return ESP_FAIL;
@@ -338,7 +356,14 @@ esp_err_t led_clear_stripe(){
         } else {
             ESP_LOG(INFO, TAG, "Cleared strip successfully");
         }
+        
+        for (int i = 1; i < MATRIX_X * MATRIX_Y; i+=2){
+            led_strip_set_pixel_color(&local_data.led_strip, i, &colour_white); 
+        }
+        ESP_LOG(WARN, TAG, "SHOWWWW-------------------------------------------------------------------");
         led_strip_show(&local_data.led_strip);
+        
+        xEventGroupSetBits(local_data.event_handle, LED_CLEAR_BIT_0);
 
         if (!release_lock()){
             
@@ -369,7 +394,7 @@ esp_err_t led_no_move_possible(uint8_t position) {
                 ESP_LOG(ERROR, TAG, "Failed to set pixel %d to red", position);
                 ret = ESP_FAIL;
             }
-
+            ESP_LOG(WARN, TAG, "SHOWWWW-------------------------------------------------------------------");
             if (!led_strip_show(&local_data.led_strip)) {
                 ESP_LOG(ERROR, TAG, "Failed to show set buffer");
                 ret = ESP_FAIL;
