@@ -51,7 +51,8 @@ struct led_color_t colour_white = {
 
 
 
-#define LED_STRIP_LENGTH ((MATRIX_X * MATRIX_Y))
+//#define LED_STRIP_LENGTH ((MATRIX_X * MATRIX_Y))
+#define LED_STRIP_LENGTH 64
 #define LED_STRIP_RMT_INTR_NUM 19U // Not sure what this exactly is. It was in the initial config for this library
 
 typedef struct led_strip_t led_strip_data_t;
@@ -175,34 +176,23 @@ esp_err_t led_test(){
     led_strip_clear(&local_data.led_strip);
     ESP_LOG(INFO, TAG, "Cleared LED strip buffers");
 
+    esp_err_t ret = ESP_OK;
 
-    /*if (led_strip_set_pixel_rgb(&local_data.led_strip, 3, 7, 1, 1)){
-        ESP_LOG(WARN, TAG, "Success");
-    } else {
-        ESP_LOG(ERROR, TAG, "Fail");
-    }*/
+    for (int i = 0; i < LED_STRIP_LENGTH+1; i++){
+        
+        for (int j = 0; j < i; j++){
+            if (!led_strip_set_pixel_color(&local_data.led_strip, j, &colour_green)){
+                ret = ESP_FAIL;
+            }
+        }
 
-    led_strip_set_pixel_color(&local_data.led_strip, 0, &colour_purple);
-    led_strip_set_pixel_color(&local_data.led_strip, 1, &colour_purple);
-    led_strip_set_pixel_color(&local_data.led_strip, 2, &colour_purple);
-    led_strip_set_pixel_color(&local_data.led_strip, 3, &colour_red);
-    led_strip_set_pixel_color(&local_data.led_strip, 4, &colour_red);
-    led_strip_set_pixel_color(&local_data.led_strip, 5, &colour_green);
-    led_strip_set_pixel_color(&local_data.led_strip, 6, &colour_green);
-    led_strip_set_pixel_color(&local_data.led_strip, 7, &colour_yellow);
-    led_strip_set_pixel_color(&local_data.led_strip, 8, &colour_yellow);
-    
-
-
-
-    if (!led_strip_show(&local_data.led_strip)) {
-        ESP_LOG(ERROR, TAG, "Failed to show");
-    } else {
-        ESP_LOG(WARN, TAG, "Showed successfully");
+        if (!led_strip_show(&local_data.led_strip)){
+            ret = ESP_FAIL;
+        }
+        vTaskDelay(100/portTICK_PERIOD_MS);
     }
 
-
-    return ESP_OK;
+    return ret;
 }
 
 esp_err_t led_test2(){

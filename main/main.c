@@ -88,7 +88,7 @@
 #define VERSION_NUMBER_Y 1
 #define VERSION_NUMBER_X 2
 
-//#define LED_TEST
+#define LED_TEST
 
 typedef struct local_data {
 
@@ -250,6 +250,16 @@ void app_main(void)
 #else
     ESP_LOG(WARN, TAG, "Display is set to be not used");
 #endif
+
+#ifdef LED_TEST
+        vTaskDelay(3000/portTICK_PERIOD_MS);
+        if (led_test() != ESP_OK){
+            ESP_LOG(ERROR, TAG, "LED STARTUP TEST FAILED");
+            reboot_reqested = true;
+        }
+        
+#endif
+
     while(1) {
 
 #ifdef WORKING_ON_EVENTS
@@ -271,14 +281,7 @@ void app_main(void)
         vTaskDelay(1000 / portTICK_PERIOD_MS);
 
 
-#ifdef LED_TEST
-        led_test();
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
-        led_test2();
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
-        led_test3();
-        vTaskDelay(10000/portTICK_PERIOD_MS);
-#endif
+
     }
 
     
