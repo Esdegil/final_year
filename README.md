@@ -1,7 +1,8 @@
 # Final Year Project. Interactive Chess Board. Vladislavas Putys {#readme_link}
 
-# version number v1.2
+# version number v1.3
 
+## v1.3 Generak QoL improvements. Adding led grid to ease the game, fixing various bugs. Moved to 8x8 board.
 ## v1.2 Impossible moves not allowed, Documentation can be generated with the used of doxygen.
 ## v1.1 Improved UX by better Display and LED Service integration across the codebase.
 ## v1.0 Minimal requirements complete. Implemented game engine with some things still left to do.
