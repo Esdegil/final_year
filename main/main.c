@@ -116,7 +116,7 @@ void main_restart_esp() {
 esp_err_t init_services(){
 
     ESP_LOG(WARN, TAG, "Initialising services...");
-
+    ESP_LOG(WARN, TAG, "HELLOU DIMA");
 #ifdef CONFIG_LED_STRIP_USED
     if (led_service_init() != ESP_OK){
         ESP_LOG(ERROR, TAG, "Failed to init led service. Aborting.");
